@@ -13,5 +13,5 @@ trait PointsTransactionOps[F[_]] {
   def cancel(transaction: PointsTransaction.Unconfirmed): F[PointsTransaction.Cancelled]
 
   //todo filters object? -> expiring only?
-  def loadHistory(id: UserId, from: Instant, to: Instant): F[List[PointsTransaction.Confirmed]]
+  def getHistory(id: UserId, from: Instant, to: Instant): F[List[PointsTransaction.Confirmed]]
 }

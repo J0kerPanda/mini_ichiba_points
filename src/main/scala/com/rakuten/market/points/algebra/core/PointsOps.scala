@@ -4,7 +4,7 @@ import com.rakuten.market.points.data.{ExpiringPoints, PointsInfo, UserId}
 
 trait PointsOps[F[_]] {
 
-  def loadPointsInfo(id: UserId): F[Option[PointsInfo]]
+  def getPointsInfo(id: UserId): F[Option[PointsInfo]]
 
-  def loadExpiringPoints(id: UserId): F[List[ExpiringPoints]]
+  def getExpiringPointsInfo(id: UserId): F[List[ExpiringPoints]]
 }

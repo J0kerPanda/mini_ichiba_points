@@ -5,9 +5,9 @@ import com.rakuten.market.points.data.UserId
 
 trait AuthService[F[_]] {
 
-  def auth(token: AuthToken): F[Option[UserId]]
+  def authUser(token: AuthToken): F[Option[UserId]]
 
-  def authorizePointsIncrease(token: ServiceToken): F[Boolean]
+  def authorizePointsAddition(token: ServiceToken): F[Boolean]
 
   def authorizePointsPayment(token: ServiceToken): F[Boolean]
 }
