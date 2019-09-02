@@ -16,8 +16,12 @@ val Version = new {
 
 libraryDependencies ++= Seq(
   "io.monix" %% "monix" % Version.monix,
+  
   "org.http4s" %% "http4s-dsl" % Version.http4s,
   "org.http4s" %% "http4s-blaze-server" % Version.http4s,
+  
+  "org.postgresql" % "postgresql" % "42.2.6",
+  "io.getquill" %% "quill-jdbc-monix" % "3.4.3"
 )
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")

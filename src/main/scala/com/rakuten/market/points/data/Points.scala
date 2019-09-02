@@ -3,6 +3,7 @@ package com.rakuten.market.points.data
 import java.time.Instant
 
 import com.rakuten.market.points.data.Points.Amount
+import io.getquill.Embedded
 
 object Points {
   type Amount = Int
@@ -15,4 +16,4 @@ sealed trait Points extends Any {
 }
 
 case class SimplePoints(value: Amount) extends AnyVal with Points
-case class ExpiringPoints(value: Amount, expires: Instant) extends Points
+case class ExpiringPoints(value: Amount, expires: Instant) extends Points with Embedded
