@@ -25,10 +25,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
 
   val userRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
     case GET -> Root / "points" as userId =>
-      service.getPointsInfo(userId).flatMap {
-        case None => NotFound()
-        case Some(p) => Ok(p)
-      }
+      service.getPointsInfo(userId).flatMap(Ok(_))
   }
 
   override val routes: HttpRoutes[F] =
@@ -38,7 +35,15 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
     AuthMiddleware {
       Kleisli[OptionT[F, ?], Request[F], UserId] { r =>
         val token = r.headers.collectFirst { case Authorization(Authorization(Token(AuthScheme.Bearer, t))) => t }
-        OptionT.fromOption[F](token).flatMapF(service.authUser)
+        OptionT.fromOption(token).flatMapF(service.authUser)
+      }
+    }
+
+  private def authAddPoints: AuthMiddleware[F, Unit] =
+    AuthMiddleware {
+      Kleisli[OptionT[F, ?], Request[F], Unit] { r =>
+        //todo
+        OptionT.pure(())
       }
     }
 

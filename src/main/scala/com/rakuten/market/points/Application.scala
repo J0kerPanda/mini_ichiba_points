@@ -2,6 +2,7 @@ package com.rakuten.market.points
 
 import cats.effect.ExitCode
 import cats.syntax.flatMap._
+import com.rakuten.market.points.auth.core.AuthService
 import com.rakuten.market.points.http.core.{Api, PointsApiService}
 import com.rakuten.market.points.storage.core.PointsStorage
 import com.rakuten.market.points.storage.util.PostgresContext
@@ -20,9 +21,10 @@ object Application extends TaskApp {
     new PostgresMonixJdbcContext(SnakeCase, "db", Runner.default)
 
   private val pointsStorage = PointsStorage.postgres
+  private val authService = AuthService.default
 
   private val service =
-    PointsApiService.default(pointsStorage)
+    PointsApiService.default(authService, pointsStorage)
 
   private val server: Api[Task] =
     Api.points("", service)

@@ -7,6 +7,9 @@ import io.getquill.Embedded
 
 object Points {
   type Amount = Int
+
+  case class Simple(value: Amount) extends AnyVal with Points
+  case class Expiring(value: Amount, expires: Instant) extends Points with Embedded
 }
 
 /** Value classes can only extend universal traits -> "extends Any"
@@ -14,6 +17,3 @@ object Points {
 sealed trait Points extends Any {
   def value: Amount
 }
-
-case class SimplePoints(value: Amount) extends AnyVal with Points
-case class ExpiringPoints(value: Amount, expires: Instant) extends Points with Embedded
