@@ -13,7 +13,7 @@ private[impl] object Schema {
         _.userId -> "user_id",
         _.total -> "total",
         _.totalExpiring -> "total_expiring",
-        _.closestExpiring.map(_.value) -> "closest_expiring_value",
+        _.closestExpiring.map(_.value) -> "closest_expiring_amount",
         _.closestExpiring.map(_.expires) -> "closest_expiring_timestamp"
       )
     }

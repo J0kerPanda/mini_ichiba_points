@@ -12,6 +12,9 @@ scalacOptions ++= Seq(
 val Version = new {
   val monix = "3.0.0-RC3"
   val http4s = "0.20.10"
+  val postgresDriver = "42.2.6"
+  val quill = "3.4.3"
+  val flyway = "6.0.1"
 }
 
 libraryDependencies ++= Seq(
@@ -20,8 +23,10 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-dsl" % Version.http4s,
   "org.http4s" %% "http4s-blaze-server" % Version.http4s,
   
-  "org.postgresql" % "postgresql" % "42.2.6",
-  "io.getquill" %% "quill-jdbc-monix" % "3.4.3"
+  "org.postgresql" % "postgresql" % Version.postgresDriver,
+  "io.getquill" %% "quill-jdbc-monix" % Version.quill,
+
+  "org.flywaydb" % "flyway-core" % Version.flyway
 )
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
