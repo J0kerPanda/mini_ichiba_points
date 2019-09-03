@@ -7,7 +7,7 @@ import com.rakuten.market.points.storage.core.{PointsStorage => CorePointsStorag
 import com.rakuten.market.points.storage.util.PostgresContext
 import monix.eval.Task
 
-class PointsStorage(implicit ctx: PostgresContext) extends CorePointsStorage[Task] {
+private[storage] class PointsStorage(implicit ctx: PostgresContext) extends CorePointsStorage[Task] {
   import Schema._
   import ctx._
 

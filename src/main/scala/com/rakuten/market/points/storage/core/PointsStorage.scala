@@ -3,6 +3,15 @@ package com.rakuten.market.points.storage.core
 import java.time.Instant
 
 import com.rakuten.market.points.data.{PointsInfo, PointsTransaction, UserId}
+import com.rakuten.market.points.storage.impl.{PointsStorage => QuillStorage}
+import com.rakuten.market.points.storage.util.PostgresContext
+import monix.eval.Task
+
+object PointsStorage {
+
+  def postgres(implicit ctx: PostgresContext): PointsStorage[Task] =
+    new QuillStorage()
+}
 
 trait PointsStorage[DBIO[_]] {
 

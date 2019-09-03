@@ -2,7 +2,6 @@ package com.rakuten.market.points.storage.impl
 
 import com.rakuten.market.points.data.PointsInfo
 import com.rakuten.market.points.storage.util.PostgresContext
-import Formats._
 
 private[impl] object Schema {
 

@@ -5,7 +5,6 @@ import monix.eval.{Task, TaskLift}
 
 object Transactional {
 
-
   implicit def monixQuill[F[_]: TaskLift](implicit ctx: PostgresContext): Transactional[Task, F] =
     new Transactional[Task, F] {
       override def transact[A](dbio: Task[A]): F[A] =
@@ -13,7 +12,6 @@ object Transactional {
     }
 
   object syntax {
-
     implicit class TransactionalSyntax[DBIO[_], A](val dbio: DBIO[A]) extends AnyVal {
       def transact[F[_]](implicit T: Transactional[DBIO, F]): F[A] =
         T.transact(dbio)
