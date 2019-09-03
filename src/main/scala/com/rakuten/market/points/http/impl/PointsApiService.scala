@@ -11,10 +11,11 @@ import com.rakuten.market.points.http.core.{ServiceError, PointsApiService => Co
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
 import monix.eval.Task
 import com.rakuten.market.points.util.TimeUtils._
+import com.rakuten.market.points.util.IdUtils._
 
 private[http] class PointsApiService(authService: AuthService[Task],
                                      pointsStorage: PointsStorage[Task])
-                                    (implicit T: Transactional[Task, Task])extends CoreApiService[Task] {
+                                    (implicit T: Transactional[Task, Task]) extends CoreApiService[Task] {
 
   def authUser(token: AuthToken): Task[Option[UserId]] =
     authService.authUser(token)
@@ -36,20 +37,21 @@ private[http] class PointsApiService(authService: AuthService[Task],
 
   def initProvidingPoints(amount: Amount)(userId: UserId): Task[Either[ServiceError, Id]] = ???
 
-  def completeProvidingPoints(transationId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] = ???
-
   def initPointsPayment(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
     //todo validate data
     T.transact {
       for {
         pointsInfo <- getPointsInfo(userId)
         time <- serverTime[Task]
-        transaction = PointsTransaction.Unidentified(userId, time, Points.Simple(amount), pointsInfo.total, None)
-        id <- pointsStorage.saveTransaction(transaction)
+        id <- transactionId
+        transaction = PointsTransaction.Unconfirmed(id, userId, time, amount, None, pointsInfo.total, None)
+        _ <- pointsStorage.saveTransaction(transaction)
       } yield Right(id)
     }
   }
 
-  def completePointsPayment(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
+  def completeTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
     pointsStorage.setTransactionConfirmed(transactionId).map(Right(_))
+
+
 }

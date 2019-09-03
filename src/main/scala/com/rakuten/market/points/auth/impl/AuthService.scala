@@ -9,6 +9,7 @@ import monix.eval.Task
 
 private[auth] class AuthService extends CoreAuthService[Task] {
 
+  //todo create points record if new user
   override def authUser(token: AuthToken): Task[Option[UserId]] =
     Task.pure(Some(UUID.fromString("b982ba4a-ce23-11e9-a32f-2a2ae2dbcce4")))
 

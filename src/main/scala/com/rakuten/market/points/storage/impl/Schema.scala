@@ -1,6 +1,7 @@
 package com.rakuten.market.points.storage.impl
 
-import com.rakuten.market.points.data.PointsInfo
+import com.rakuten.market.points.data.Points.Expiring
+import com.rakuten.market.points.data.{PointsInfo, PointsTransaction}
 import com.rakuten.market.points.storage.util.PostgresContext
 
 private[impl] object Schema {
@@ -15,6 +16,22 @@ private[impl] object Schema {
         _.totalExpiring -> "total_expiring",
         _.closestExpiring.map(_.value) -> "closest_expiring_amount",
         _.closestExpiring.map(_.expires) -> "closest_expiring_timestamp"
+      )
+    }
+  }
+
+  def unconfirmedTransaction(implicit ctx: PostgresContext) = {
+    import ctx._
+    quote {
+      querySchema[PointsTransaction.Unconfirmed](
+        "transaction",
+        _.id -> "id",
+        _.userId -> "user_id",
+        _.amount -> "amount",
+        _.time -> "timestamp",
+        _.expires -> "expires",
+        _.total -> "total",
+        _.comment -> "comment"
       )
     }
   }
