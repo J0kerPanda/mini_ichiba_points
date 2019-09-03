@@ -2,7 +2,7 @@ CREATE TABLE points (
   user_id UUID PRIMARY KEY,
   total INT NOT NULL CHECK (total >= 0),
   total_expiring INT NOT NULL CHECK (total_expiring >= 0),
-  closest_expiry_timestamp TIMESTAMP NULL,
+  closest_expiring_timestamp TIMESTAMP NULL,
   closest_expiring_amount INT NULL
 );
 

@@ -1,8 +1,10 @@
 package com.rakuten.market.points.storage
 
+import java.sql.{Timestamp, Types}
 import java.time.Instant
 import java.util.UUID
 
+import com.rakuten.market.points.storage.util.PostgresContext
 import io.getquill.MappedEncoding
 
 package object impl {
@@ -12,8 +14,12 @@ package object impl {
   implicit val decodeUUID: MappedEncoding[String, UUID] =
     MappedEncoding[String, UUID](UUID.fromString)
 
-  implicit val encodeInstant: MappedEncoding[Instant, Long] =
-    MappedEncoding[Instant, Long](_.toEpochMilli)
-  implicit val decodeInstant: MappedEncoding[Long, Instant] =
-    MappedEncoding[Long, Instant](Instant.ofEpochMilli)
+  implicit def encodeInstant(implicit ctx: PostgresContext): ctx.Encoder[Instant] =
+    ctx.encoder(
+      Types.TIMESTAMP,
+      (i, ts, r) => r.setTimestamp(i, Timestamp.from(ts))
+    )
+
+  implicit def decodeInstant(implicit ctx: PostgresContext): ctx.Decoder[Instant] =
+    ctx.decoder((i, r) => r.getTimestamp(i).toInstant)
 }
