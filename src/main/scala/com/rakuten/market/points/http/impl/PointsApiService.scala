@@ -6,13 +6,12 @@ import cats.syntax.flatMap._
 import com.rakuten.market.points.auth.core.AuthService
 import com.rakuten.market.points.auth.{AuthToken, ServiceToken}
 import com.rakuten.market.points.data.Points.Amount
-import com.rakuten.market.points.data.PointsTransaction.Id
 import com.rakuten.market.points.data._
 import com.rakuten.market.points.http.core.{ServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
-import monix.eval.Task
-import com.rakuten.market.points.util.TimeUtils._
 import com.rakuten.market.points.util.IdUtils._
+import com.rakuten.market.points.util.TimeUtils._
+import monix.eval.Task
 
 private[http] class PointsApiService(authService: AuthService[Task],
                                      pointsStorage: PointsStorage[Task])
@@ -47,7 +46,7 @@ private[http] class PointsApiService(authService: AuthService[Task],
       } yield Right(())
     }
 
-  def initPointsTransaction(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
+  def startPointsTransaction(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
     //todo validate data
     T.transact {
       for {

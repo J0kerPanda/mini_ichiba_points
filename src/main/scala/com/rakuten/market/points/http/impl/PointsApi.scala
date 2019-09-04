@@ -6,6 +6,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.rakuten.market.points.data.UserId
 import com.rakuten.market.points.http.core.{Api, PointsApiService => CoreApiService}
+import com.rakuten.market.points.http.request.{ChangePointsRequest, CompleteTransactionRequest, TransactPointsRequest}
+import com.rakuten.market.points.http.response.TransactionStartedResponse
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s.Credentials.Token
@@ -29,11 +31,35 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
   }
 
   val serviceRoutes: HttpRoutes[F] = HttpRoutes.of {
-    case POST -> Root / "provide-points" =>
-      ???
+    case req @ POST -> Root / "change-points" =>
+      req.as[ChangePointsRequest]
+        .flatMap { r =>
+          service.changePoints(r.amount)(r.userId)
+        }
+        .flatMap {
+          case Left(e) => BadRequest()
+          case Right(_) => Ok()
+        }
 
-    case POST -> Root / "complete-transaction" =>
-      ???
+    case req @POST -> Root / "provide-points" =>
+      req.as[TransactPointsRequest]
+        .flatMap { r =>
+          service.startPointsTransaction(r.amount)(r.userId)
+        }
+        .flatMap {
+          case Left(e) => BadRequest()
+          case Right(id) => Ok(TransactionStartedResponse(id))
+        }
+
+    case req @ POST -> Root / "complete-transaction" =>
+      req.as[CompleteTransactionRequest]
+        .flatMap { r =>
+          service.completePointsTransaction(r.id)
+        }
+        .flatMap {
+          case Left(e) => BadRequest()
+          case Right(_) => Ok()
+        }
   }
 
   override val routes: HttpRoutes[F] =
