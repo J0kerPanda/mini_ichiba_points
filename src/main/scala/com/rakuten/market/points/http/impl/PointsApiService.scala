@@ -60,6 +60,7 @@ private[http] class PointsApiService(authService: AuthService[Task],
     }
   }
 
+  //todo return error on false
   def confirmPointsTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
     pointsStorage.confirmTransaction(transactionId).map(Right(_))
 

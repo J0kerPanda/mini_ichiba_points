@@ -41,7 +41,7 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
       } yield ()
     }
 
-  override def confirmTransaction(id: PointsTransaction.Id): Task[Unit] =
+  override def confirmTransaction(id: PointsTransaction.Id): Task[Boolean] =
     ctx.transaction {
       for {
         i1 <- ctx.run {
@@ -55,14 +55,15 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
             )
           }
         }
+        _ <- Task.delay(throw new Exception("oops"))
         _ <- ctx.run {
-          query[PointsTransaction.Pending].filter(_.id == lift(id)).delete
+          pendingTransacton.filter(_.id == lift(id)).delete
         }
         _ <- ctx.run {
-          liftQuery(i1).foreach { case (info, trans) => points.filter(_.userId == info.userId).update(_.total -> (info.total + trans.amount)) }
+          liftQuery(i1).foreach { case (info, trans) => points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount)) }
         }
-      } yield ()
+      } yield i1.nonEmpty
     }
 
-  override def removePendingTransaction(id: PointsTransaction.Id): Task[Unit] = ???
+  override def removePendingTransaction(id: PointsTransaction.Id): Task[Boolean] = ???
 }

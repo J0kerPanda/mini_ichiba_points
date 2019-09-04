@@ -25,7 +25,7 @@ trait PointsStorage[DBIO[_]] {
 
   def saveTransaction(transaction: PointsTransaction.Confirmed): DBIO[Unit]
 
-  def confirmTransaction(id: PointsTransaction.Id): DBIO[Unit]
+  def confirmTransaction(id: PointsTransaction.Id): DBIO[Boolean]
 
-  def removePendingTransaction(id: PointsTransaction.Id): DBIO[Unit]
+  def removePendingTransaction(id: PointsTransaction.Id): DBIO[Boolean]
 }

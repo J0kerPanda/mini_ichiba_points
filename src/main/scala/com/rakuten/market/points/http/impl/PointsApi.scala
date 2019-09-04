@@ -42,7 +42,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
           case Right(_) => Ok()
         }
 
-    case req @ POST -> Root / "provide-points" =>
+    case req @ POST -> Root / "start-transaction" =>
       req.as[TransactPointsRequest]
         .flatMap { r =>
           service.startPointsTransaction(r.amount)(r.userId)
@@ -52,7 +52,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
           case Right(id) => Ok(TransactionStartedResponse(id))
         }
 
-    case req @ POST -> Root / "complete-transaction" =>
+    case req @ POST -> Root / "confirm-transaction" =>
       req.as[ConfirmTransactionRequest]
         .flatMap { r =>
           service.confirmPointsTransaction(r.id)
