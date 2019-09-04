@@ -30,9 +30,16 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
     }.void
 
   override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] =
-    ctx.run {
-      confirmedTransaction.insert(lift(transaction))
-    }.void
+    ctx.transaction {
+      for {
+        _ <- ctx.run {
+          confirmedTransaction.insert(lift(transaction))
+        }.void
+        _ <- ctx.run {
+          points.filter(_.userId == lift(transaction.userId)).update(p => p.total -> (p.total + lift(transaction.amount)))
+        }
+      } yield ()
+    }
 
   override def confirmTransaction(id: PointsTransaction.Id): Task[Unit] =
     ctx.transaction {

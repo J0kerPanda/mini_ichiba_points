@@ -5,7 +5,6 @@ import java.time.Instant
 import cats.syntax.flatMap._
 import com.rakuten.market.points.auth.core.AuthService
 import com.rakuten.market.points.auth.{AuthToken, ServiceToken}
-import com.rakuten.market.points.data.Points.Amount
 import com.rakuten.market.points.data._
 import com.rakuten.market.points.http.core.{ServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
@@ -35,7 +34,8 @@ private[http] class PointsApiService(authService: AuthService[Task],
 
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction]] = ???
 
-  def changePoints(amount: Amount)(userId: UserId): Task[Either[ServiceError, Unit]] =
+  def changePoints(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, Unit]] =
+    //todo check authority? -> serviceToken
     T.transact {
       for {
         pointsInfo <- ensurePointsRecordExists(userId)
@@ -48,6 +48,7 @@ private[http] class PointsApiService(authService: AuthService[Task],
 
   def startPointsTransaction(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
     //todo validate data
+    //todo check authority? -> serviceToken
     T.transact {
       for {
         pointsInfo <- ensurePointsRecordExists(userId)
@@ -59,7 +60,7 @@ private[http] class PointsApiService(authService: AuthService[Task],
     }
   }
 
-  def completePointsTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
+  def confirmPointsTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
     pointsStorage.confirmTransaction(transactionId).map(Right(_))
 
   private def ensurePointsRecordExists(userId: UserId): Task[PointsInfo] =

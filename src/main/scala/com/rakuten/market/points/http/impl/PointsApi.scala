@@ -4,18 +4,19 @@ import cats.data.{Kleisli, OptionT}
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.semigroupk._
 import com.rakuten.market.points.data.UserId
 import com.rakuten.market.points.http.core.{Api, PointsApiService => CoreApiService}
-import com.rakuten.market.points.http.request.{ChangePointsRequest, CompleteTransactionRequest, TransactPointsRequest}
+import com.rakuten.market.points.http.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
 import com.rakuten.market.points.http.response.TransactionStartedResponse
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s.Credentials.Token
+import org.http4s._
 import org.http4s.circe.CirceInstances
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Authorization
 import org.http4s.server.{AuthMiddleware, Router}
-import org.http4s.{AuthScheme, AuthedRoutes, HttpRoutes, Request, _}
 
 
 private[http] class PointsApi[F[_]: Sync](val root: String,
@@ -41,7 +42,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
           case Right(_) => Ok()
         }
 
-    case req @POST -> Root / "provide-points" =>
+    case req @ POST -> Root / "provide-points" =>
       req.as[TransactPointsRequest]
         .flatMap { r =>
           service.startPointsTransaction(r.amount)(r.userId)
@@ -52,9 +53,9 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
         }
 
     case req @ POST -> Root / "complete-transaction" =>
-      req.as[CompleteTransactionRequest]
+      req.as[ConfirmTransactionRequest]
         .flatMap { r =>
-          service.completePointsTransaction(r.id)
+          service.confirmPointsTransaction(r.id)
         }
         .flatMap {
           case Left(e) => BadRequest()
@@ -63,7 +64,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
   }
 
   override val routes: HttpRoutes[F] =
-    Router(root -> authUser(userRoutes))
+    Router(root -> authUser(userRoutes), root -> serviceRoutes)
 
   private def authUser: AuthMiddleware[F, UserId] =
     AuthMiddleware {
