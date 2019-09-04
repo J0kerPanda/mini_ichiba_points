@@ -4,7 +4,6 @@ import cats.data.{Kleisli, OptionT}
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.semigroupk._
 import com.rakuten.market.points.data.UserId
 import com.rakuten.market.points.http.core.{Api, PointsApiService => CoreApiService}
 import com.rakuten.market.points.http.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
@@ -26,13 +25,14 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
   private implicit def decoder[E: Decoder]: EntityDecoder[F, E] = instances.jsonOf
   private implicit def encoder[E: Encoder]: EntityEncoder[F, E] = instances.jsonEncoderOf
 
+  //todo make a separate format for points info
   val userRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
     case GET -> Root / "points" as userId =>
       service.getPointsInfo(userId).flatMap(Ok(_))
   }
 
   val serviceRoutes: HttpRoutes[F] = HttpRoutes.of {
-    case req @ POST -> Root / "change-points" =>
+    case req @ POST -> Root / "points" =>
       req.as[ChangePointsRequest]
         .flatMap { r =>
           service.changePoints(r.amount)(r.userId)
@@ -42,7 +42,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
           case Right(_) => Ok()
         }
 
-    case req @ POST -> Root / "start-transaction" =>
+    case req @ POST -> Root / "transaction" / "start" =>
       req.as[TransactPointsRequest]
         .flatMap { r =>
           service.startPointsTransaction(r.amount)(r.userId)
@@ -52,7 +52,7 @@ private[http] class PointsApi[F[_]: Sync](val root: String,
           case Right(id) => Ok(TransactionStartedResponse(id))
         }
 
-    case req @ POST -> Root / "confirm-transaction" =>
+    case req @ POST -> Root / "transaction" / "confirm" =>
       req.as[ConfirmTransactionRequest]
         .flatMap { r =>
           service.confirmPointsTransaction(r.id)
