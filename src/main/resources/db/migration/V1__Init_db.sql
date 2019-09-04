@@ -16,6 +16,16 @@ CREATE TABLE transaction(
   comment VARCHAR(1024) NULL
 );
 
+CREATE TABLE pending_transaction(
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES points(user_id),
+  amount INT NOT NULL,
+  timestamp TIMESTAMP NOT NULL,
+  expires TIMESTAMP NULL,
+  total INT NOT NULL,
+  comment VARCHAR(1024) NULL
+);
+
 CREATE TABLE expiring_points(
   transaction_id UUID NOT NULL REFERENCES transaction(id),
   user_id UUID NOT NULL REFERENCES points(user_id),

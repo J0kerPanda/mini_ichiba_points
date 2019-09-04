@@ -12,6 +12,11 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
   import Schema._
   import ctx._
 
+  override def savePointsInfo(info: PointsInfo): Task[Unit] =
+    ctx.run {
+      points.insert(lift(info))
+    }.void
+
   override def getPointsInfo(userId: UserId): Task[Option[PointsInfo]] =
     ctx.run {
       points.filter(_.userId == lift(userId))
@@ -19,22 +24,38 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
 
   override def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction.Confirmed]] = ???
 
-  override def saveTransaction(transaction: PointsTransaction.Unconfirmed): Task[Unit] =
+  override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
     ctx.run {
-      unconfirmedTransaction.insert(lift(transaction))
+      pendingTransacton.insert(lift(transaction))
     }.void
 
-  override def setTransactionConfirmed(id: PointsTransaction.Id): Task[Unit] =
+  override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] =
+    ctx.run {
+      confirmedTransaction.insert(lift(transaction))
+    }.void
+
+  override def confirmTransaction(id: PointsTransaction.Id): Task[Unit] =
     ctx.transaction {
       for {
         i1 <- ctx.run {
-          points.join(unconfirmedTransaction.filter(_.id == lift(id))).on(_.userId == _.userId)
+          points.join(pendingTransacton.filter(_.id == lift(id))).on(_.userId == _.userId)
         }
         _ <- ctx.run {
-          liftQuery(i1).foreach { case (info, trans) => points.filter(_.userId == info.userId).update(p => (p.total, p.total + trans.amount)) }
+          liftQuery(i1).foreach { case (_, t) =>
+            confirmedTransaction.insert(
+              _.id -> t.id, _.userId -> t.userId, _.time -> t.time, _.amount -> t.amount,
+              _.expires -> t.expires, _.total -> t.total, _.comment -> t.comment
+            )
+          }
+        }
+        _ <- ctx.run {
+          query[PointsTransaction.Pending].filter(_.id == lift(id)).delete
+        }
+        _ <- ctx.run {
+          liftQuery(i1).foreach { case (info, trans) => points.filter(_.userId == info.userId).update(_.total -> (info.total + trans.amount)) }
         }
       } yield ()
     }
 
-  override def setTransactionCancelled(id: PointsTransaction.Id): Task[Unit] = ???
+  override def removePendingTransaction(id: PointsTransaction.Id): Task[Unit] = ???
 }

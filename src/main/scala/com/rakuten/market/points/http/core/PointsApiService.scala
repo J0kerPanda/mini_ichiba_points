@@ -24,9 +24,9 @@ trait PointsApiService[F[_]] extends AuthService[F] {
 
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): F[List[PointsTransaction]]
 
-  def initProvidingPoints(amount: Points.Amount)(userId: UserId): F[Either[ServiceError, PointsTransaction.Id]]
+  def changePoints(amount: Points.Amount)(userId: UserId): F[Either[ServiceError, Unit]]
 
-  def initPointsPayment(amount: Points.Amount)(userId: UserId): F[Either[ServiceError, PointsTransaction.Id]]
+  def initPointsTransaction(amount: Points.Amount)(userId: UserId): F[Either[ServiceError, PointsTransaction.Id]]
 
-  def completeTransaction(transactionId: PointsTransaction.Id): F[Either[ServiceError, Unit]]
+  def completePointsTransaction(transactionId: PointsTransaction.Id): F[Either[ServiceError, Unit]]
 }

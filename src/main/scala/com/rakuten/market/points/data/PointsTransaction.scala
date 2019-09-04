@@ -15,13 +15,13 @@ sealed trait PointsTransaction {
 object PointsTransaction {
   type Id = UUID
 
-  case class Unconfirmed(id: Id,
-                         userId: UserId,
-                         time: Instant,
-                         amount: Points.Amount,
-                         expires: Option[Instant],
-                         total: Points.Amount,
-                         comment: Option[String]) extends PointsTransaction
+  case class Pending(id: Id,
+                     userId: UserId,
+                     time: Instant,
+                     amount: Points.Amount,
+                     expires: Option[Instant],
+                     total: Points.Amount,
+                     comment: Option[String]) extends PointsTransaction
 
   case class Confirmed(id: Id,
                        userId: UserId,
@@ -30,15 +30,5 @@ object PointsTransaction {
                        expires: Option[Instant],
                        total: Points.Amount,
                        comment: Option[String]) extends PointsTransaction
-
-
-  case class Cancelled(id: Id,
-                       userId: UserId,
-                       time: Instant,
-                       amount: Points.Amount,
-                       expires: Option[Instant],
-                       total: Points.Amount,
-                       comment: Option[String]) extends PointsTransaction
-
 }
 

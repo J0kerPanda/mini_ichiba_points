@@ -2,6 +2,7 @@ package com.rakuten.market.points.http.impl
 
 import java.time.Instant
 
+import cats.syntax.flatMap._
 import com.rakuten.market.points.auth.core.AuthService
 import com.rakuten.market.points.auth.{AuthToken, ServiceToken}
 import com.rakuten.market.points.data.Points.Amount
@@ -35,23 +36,39 @@ private[http] class PointsApiService(authService: AuthService[Task],
 
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction]] = ???
 
-  def initProvidingPoints(amount: Amount)(userId: UserId): Task[Either[ServiceError, Id]] = ???
+  def changePoints(amount: Amount)(userId: UserId): Task[Either[ServiceError, Unit]] =
+    T.transact {
+      for {
+        pointsInfo <- ensurePointsRecordExists(userId)
+        time <- serverTime[Task]
+        id <- generateTransactionId
+        transaction = PointsTransaction.Confirmed(id, userId, time, amount, None, pointsInfo.total, None)
+        _ <- pointsStorage.saveTransaction(transaction)
+      } yield Right(())
+    }
 
-  def initPointsPayment(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
+  def initPointsTransaction(amount: Points.Amount)(userId: UserId): Task[Either[ServiceError, PointsTransaction.Id]] = {
     //todo validate data
     T.transact {
       for {
-        pointsInfo <- getPointsInfo(userId)
+        pointsInfo <- ensurePointsRecordExists(userId)
         time <- serverTime[Task]
-        id <- transactionId
-        transaction = PointsTransaction.Unconfirmed(id, userId, time, amount, None, pointsInfo.total, None)
+        id <- generateTransactionId
+        transaction = PointsTransaction.Pending(id, userId, time, amount, None, pointsInfo.total, None)
         _ <- pointsStorage.saveTransaction(transaction)
       } yield Right(id)
     }
   }
 
-  def completeTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
-    pointsStorage.setTransactionConfirmed(transactionId).map(Right(_))
+  def completePointsTransaction(transactionId: PointsTransaction.Id): Task[Either[ServiceError, Unit]] =
+    pointsStorage.confirmTransaction(transactionId).map(Right(_))
 
-
+  private def ensurePointsRecordExists(userId: UserId): Task[PointsInfo] =
+    pointsStorage.getPointsInfo(userId).flatMap {
+      case Some(info) =>
+        Task.pure(info)
+      case None =>
+        val info = PointsInfo.empty(userId)
+        pointsStorage.savePointsInfo(info) >> Task.pure(info)
+    }
 }

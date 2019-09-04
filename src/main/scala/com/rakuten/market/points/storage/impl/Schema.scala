@@ -20,10 +20,26 @@ private[impl] object Schema {
     }
   }
 
-  def unconfirmedTransaction(implicit ctx: PostgresContext) = {
+  def pendingTransacton(implicit ctx: PostgresContext) = {
     import ctx._
     quote {
-      querySchema[PointsTransaction.Unconfirmed](
+      querySchema[PointsTransaction.Pending](
+        "pending_transaction",
+        _.id -> "id",
+        _.userId -> "user_id",
+        _.amount -> "amount",
+        _.time -> "timestamp",
+        _.expires -> "expires",
+        _.total -> "total",
+        _.comment -> "comment"
+      )
+    }
+  }
+
+  def confirmedTransaction(implicit ctx: PostgresContext) = {
+    import ctx._
+    quote {
+      querySchema[PointsTransaction.Confirmed](
         "transaction",
         _.id -> "id",
         _.userId -> "user_id",

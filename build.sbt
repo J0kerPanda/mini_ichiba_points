@@ -15,6 +15,7 @@ val Version = new {
   val circe = "0.11.1"
   val postgresDriver = "42.2.6"
   val quill = "3.4.3"
+  val chimney = "0.3.2"
   val scalaLogging = "3.9.2"
   val logback = "1.2.3"
   val flyway = "6.0.1"

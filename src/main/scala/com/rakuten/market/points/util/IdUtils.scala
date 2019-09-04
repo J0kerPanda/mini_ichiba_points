@@ -7,6 +7,6 @@ import monix.eval.Task
 
 object IdUtils {
 
-  def transactionId: Task[PointsTransaction.Id] =
+  def generateTransactionId: Task[PointsTransaction.Id] =
     Task.delay(UUID.randomUUID())
 }
