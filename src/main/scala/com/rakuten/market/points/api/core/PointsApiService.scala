@@ -1,22 +1,20 @@
-package com.rakuten.market.points.http.core
+package com.rakuten.market.points.api.core
 
 import java.time.Instant
 
-import com.rakuten.market.points.auth.core.AuthService
+import com.rakuten.market.points.api.impl.{PointsApiService => DefaultApiService}
 import com.rakuten.market.points.data._
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
 import monix.eval.Task
-import com.rakuten.market.points.http.impl.{PointsApiService => DefaultApiService}
 
 object PointsApiService {
 
-  def default(authService: AuthService[Task],
-              pointsStorage: PointsStorage[Task])
+  def default(pointsStorage: PointsStorage[Task])
              (implicit tr: Transactional[Task, Task]): PointsApiService[Task] =
-    new DefaultApiService(authService, pointsStorage)
+    new DefaultApiService(pointsStorage)
 }
 
-trait PointsApiService[F[_]] extends AuthService[F] {
+trait PointsApiService[F[_]] {
 
   def getPointsInfo(userId: UserId): F[PointsInfo]
 

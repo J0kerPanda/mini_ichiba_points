@@ -12,6 +12,7 @@ scalacOptions ++= Seq(
 val Version = new {
   val monix = "3.0.0-RC3"
   val http4s = "0.20.10"
+  val tsec = "0.2.0-M1"
   val circe = "0.11.1"
   val postgresDriver = "42.2.6"
   val quill = "3.4.3"
@@ -27,7 +28,11 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-dsl" % Version.http4s,
   "org.http4s" %% "http4s-blaze-server" % Version.http4s,
   "org.http4s" %% "http4s-circe" % Version.http4s,
-    
+
+  "io.github.jmcardon" %% "tsec-common" % Version.tsec,
+  "io.github.jmcardon" %% "tsec-http4s" % Version.tsec,
+  "io.github.jmcardon" %% "tsec-jwt-mac" % Version.tsec,
+
   "io.circe" %% "circe-generic" % Version.circe,
   
   "org.postgresql" % "postgresql" % Version.postgresDriver,

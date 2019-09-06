@@ -1,29 +1,17 @@
-package com.rakuten.market.points.http.impl
+package com.rakuten.market.points.api.impl
 
 import java.time.Instant
 
 import cats.syntax.flatMap._
-import com.rakuten.market.points.auth.core.AuthService
-import com.rakuten.market.points.auth.{AuthToken, ServiceToken}
+import com.rakuten.market.points.api.core.{ServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.data._
-import com.rakuten.market.points.http.core.{ServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
 import com.rakuten.market.points.util.IdUtils._
 import com.rakuten.market.points.util.TimeUtils._
 import monix.eval.Task
 
-private[http] class PointsApiService(authService: AuthService[Task],
-                                     pointsStorage: PointsStorage[Task])
-                                    (implicit T: Transactional[Task, Task]) extends CoreApiService[Task] {
-
-  def authUser(token: AuthToken): Task[Option[UserId]] =
-    authService.authUser(token)
-
-  def authorizeProvidingPoints(token: ServiceToken): Task[Boolean] =
-    authService.authorizeProvidingPoints(token)
-
-  def authorizePointsPayment(token: ServiceToken): Task[Boolean] =
-    authService.authorizePointsPayment(token)
+private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
+                                   (implicit T: Transactional[Task, Task]) extends CoreApiService[Task] {
 
   def getPointsInfo(userId: UserId): Task[PointsInfo] =
     pointsStorage
