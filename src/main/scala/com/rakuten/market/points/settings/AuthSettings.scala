@@ -13,5 +13,5 @@ object AuthSettings {
     ))
 }
 
-case class AuthSettings(expiryDuration: FiniteDuration,
+case class AuthSettings(expirationInterval: FiniteDuration,
                         signingKey: MacSigningKey[HMACSHA256])

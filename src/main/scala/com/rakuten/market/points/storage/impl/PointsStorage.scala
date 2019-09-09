@@ -65,5 +65,5 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
       } yield i1.nonEmpty
     }
 
-  override def removePendingTransaction(id: PointsTransaction.Id): Task[Boolean] = ???
+  override def removePendingTransactions(from: Instant): Task[Unit] = ???
 }

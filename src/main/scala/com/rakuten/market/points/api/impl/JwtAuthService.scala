@@ -10,7 +10,7 @@ private[api] class JwtAuthService[F[_]: Sync](val settings: AuthSettings) {
 
   private val authenticator =
     JWTAuthenticator.pstateless.inBearerToken[F, JwtClaims, HMACSHA256](
-      expiryDuration = settings.expiryDuration,
+      expiryDuration = settings.expirationInterval,
       maxIdle = None,
       signingKey = settings.signingKey,
     )

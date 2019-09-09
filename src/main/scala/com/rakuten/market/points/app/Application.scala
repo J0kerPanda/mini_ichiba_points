@@ -1,8 +1,9 @@
-package com.rakuten.market.points
+package com.rakuten.market.points.app
+
 
 import cats.effect.ExitCode
 import com.rakuten.market.points.api.core.{Api, PointsApiService}
-import com.rakuten.market.points.settings.{ApiSettings, ServerSettings}
+import com.rakuten.market.points.settings.{ApplicationSettings, ServerSettings}
 import com.rakuten.market.points.storage.core.PointsStorage
 import com.rakuten.market.points.storage.util.PostgresContext
 import io.getquill.context.monix.Runner
@@ -22,14 +23,13 @@ object Application extends TaskApp {
 
   override def run(args: List[String]): Task[ExitCode] =
     for {
-      apiConfig <- apiSettings
+      settings <- appSettings
       _ <- migrateDatabase
       pointsStorage = PointsStorage.postgres
-      key = apiConfig.auth.signingKey.toJavaKey
-      _ = println("encoded", key.getFormat, new String(key.getEncoded))
+      _ = scheduledTasks(settings, pointsStorage).runAsyncAndForget(scheduler)
       service = PointsApiService.default(pointsStorage)
-      api = Api.points("", apiConfig.auth, service)
-      exitCode <- runServer(api, apiConfig.server)
+      api = Api.points("", settings.api.auth, service)
+      exitCode <- runServer(api, settings.api.server)
     } yield exitCode
 
   private def migrateDatabase: Task[Unit] =
@@ -49,11 +49,16 @@ object Application extends TaskApp {
       .compile
       .lastOrError
 
-  private def apiSettings: Task[ApiSettings] = {
-    import pureconfig.generic.auto._
+  private def appSettings: Task[ApplicationSettings] = {
     import com.rakuten.market.points.settings.AuthSettings.signingKeyReader
+    import pureconfig.generic.auto._
 
     implicit def hint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
-    Task.delay(pureconfig.loadConfigOrThrow[ApiSettings]("api"))
+    Task.delay(pureconfig.loadConfigOrThrow[ApplicationSettings])
   }
+
+  private def scheduledTasks(settings: ApplicationSettings,
+                             storage: PointsStorage[Task]): Task[Unit] =
+    Schedule.removePendingTransactions(settings.points.transaction, storage)
+
 }
