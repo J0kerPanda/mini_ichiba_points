@@ -11,7 +11,7 @@ scalacOptions ++= Seq(
 
 val Version = new {
   val monix = "3.0.0-RC3"
-  val http4s = "0.20.10"
+  val http4s = "0.21.0-M1"
   val tsec = "0.2.0-M1"
   val circe = "0.11.1"
   val postgresDriver = "42.2.6"

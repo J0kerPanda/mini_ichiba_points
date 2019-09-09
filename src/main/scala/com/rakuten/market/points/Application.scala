@@ -8,12 +8,13 @@ import com.rakuten.market.points.storage.core.PointsStorage
 import com.rakuten.market.points.storage.util.PostgresContext
 import io.getquill.context.monix.Runner
 import io.getquill.{PostgresMonixJdbcContext, SnakeCase}
+import javax.crypto.spec.SecretKeySpec
 import monix.eval.{Task, TaskApp}
 import org.flywaydb.core.Flyway
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
-import tsec.mac.jca.HMACSHA256
+import tsec.mac.jca.{HMACSHA256, MacSigningKey}
 
 import scala.concurrent.duration._
 
@@ -23,10 +24,15 @@ object Application extends TaskApp {
     new PostgresMonixJdbcContext(SnakeCase, "db", Runner.default)
 
   private val pointsStorage = PointsStorage.postgres
+
+  val key = new SecretKeySpec("qwertyuiopasdfghjklzxcvbnm123456".getBytes, "HS256")
   private val authSettings = JwtAuthSettings(
     expiryDuration = 10.minutes,
-    signingKey = HMACSHA256.unsafeBuildKey("key".getBytes)
+    signingKey =
+      MacSigningKey[HMACSHA256](key)
   )
+
+  println("eocnded", key.getFormat, new String(key.getEncoded))
 
   private val service =
     PointsApiService.default(pointsStorage)

@@ -6,14 +6,13 @@ import io.circe.generic.auto._
 import tsec.authentication.{JWTAuthenticator, SecuredRequestHandler}
 import tsec.mac.jca.HMACSHA256
 
-
-private[api] class JwtAuthService[F[_]: Sync](settings: JwtAuthSettings) {
+private[api] class JwtAuthService[F[_]: Sync](val settings: JwtAuthSettings) {
 
   private val authenticator =
-    JWTAuthenticator.pstateless.inBearerToken[F, JwtPayload, HMACSHA256](
+    JWTAuthenticator.pstateless.inBearerToken[F, JwtClaims, HMACSHA256](
       expiryDuration = settings.expiryDuration,
       maxIdle = None,
-      signingKey = settings.signingKey
+      signingKey = settings.signingKey,
     )
 
   val service = SecuredRequestHandler(authenticator)
