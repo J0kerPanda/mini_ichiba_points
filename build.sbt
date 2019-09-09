@@ -17,6 +17,7 @@ val Version = new {
   val postgresDriver = "42.2.6"
   val quill = "3.4.3"
   val chimney = "0.3.2"
+  val pureconfig = "0.11.1"
   val scalaLogging = "3.9.2"
   val logback = "1.2.3"
   val flyway = "6.0.1"
@@ -37,6 +38,8 @@ libraryDependencies ++= Seq(
   
   "org.postgresql" % "postgresql" % Version.postgresDriver,
   "io.getquill" %% "quill-jdbc-monix" % Version.quill,
+
+  "com.github.pureconfig" %% "pureconfig" % Version.pureconfig,
 
   "com.typesafe.scala-logging" %% "scala-logging" % Version.scalaLogging,
   "ch.qos.logback" % "logback-classic" % Version.logback,

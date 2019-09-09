@@ -1,48 +1,36 @@
 package com.rakuten.market.points
 
 import cats.effect.ExitCode
-import cats.syntax.flatMap._
 import com.rakuten.market.points.api.core.{Api, PointsApiService}
-import com.rakuten.market.points.settings.JwtAuthSettings
+import com.rakuten.market.points.settings.{ApiSettings, ServerSettings}
 import com.rakuten.market.points.storage.core.PointsStorage
 import com.rakuten.market.points.storage.util.PostgresContext
 import io.getquill.context.monix.Runner
 import io.getquill.{PostgresMonixJdbcContext, SnakeCase}
-import javax.crypto.spec.SecretKeySpec
 import monix.eval.{Task, TaskApp}
 import org.flywaydb.core.Flyway
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
-import tsec.mac.jca.{HMACSHA256, MacSigningKey}
-
-import scala.concurrent.duration._
+import pureconfig.generic.ProductHint
+import pureconfig.{CamelCase, ConfigFieldMapping}
 
 object Application extends TaskApp {
 
   private lazy implicit val dbCtx: PostgresContext =
     new PostgresMonixJdbcContext(SnakeCase, "db", Runner.default)
 
-  private val pointsStorage = PointsStorage.postgres
-
-  val key = new SecretKeySpec("qwertyuiopasdfghjklzxcvbnm123456".getBytes, "HS256")
-  private val authSettings = JwtAuthSettings(
-    expiryDuration = 10.minutes,
-    signingKey =
-      MacSigningKey[HMACSHA256](key)
-  )
-
-  println("eocnded", key.getFormat, new String(key.getEncoded))
-
-  private val service =
-    PointsApiService.default(pointsStorage)
-
-  private val server: Api[Task] =
-    Api.points("", authSettings, service)
-
-  override def run(args: List[String]): Task[ExitCode] = {
-    migrateDatabase >> runServer
-  }
+  override def run(args: List[String]): Task[ExitCode] =
+    for {
+      apiConfig <- apiSettings
+      _ <- migrateDatabase
+      pointsStorage = PointsStorage.postgres
+      key = apiConfig.auth.signingKey.toJavaKey
+      _ = println("encoded", key.getFormat, new String(key.getEncoded))
+      service = PointsApiService.default(pointsStorage)
+      api = Api.points("", apiConfig.auth, service)
+      exitCode <- runServer(api, apiConfig.server)
+    } yield exitCode
 
   private def migrateDatabase: Task[Unit] =
     Task.delay {
@@ -53,11 +41,19 @@ object Application extends TaskApp {
         .migrate()
     }
 
-  private def runServer: Task[ExitCode] =
+  private def runServer(api: Api[Task], settings: ServerSettings): Task[ExitCode] =
     BlazeServerBuilder[Task]
-      .bindHttp(8080, "localhost")
-      .withHttpApp(Router(server.root -> server.routes).orNotFound)
+      .bindHttp(settings.port, settings.host)
+      .withHttpApp(Router(api.root -> api.routes).orNotFound)
       .serve
       .compile
       .lastOrError
+
+  private def apiSettings: Task[ApiSettings] = {
+    import pureconfig.generic.auto._
+    import com.rakuten.market.points.settings.AuthSettings.signingKeyReader
+
+    implicit def hint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
+    Task.delay(pureconfig.loadConfigOrThrow[ApiSettings]("api"))
+  }
 }
