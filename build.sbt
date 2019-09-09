@@ -1,13 +1,14 @@
 name := "mini_ichiba_points"
 
 version := "0.1"
-
 scalaVersion := "2.12.9"
 
 scalacOptions ++= Seq(
   "-language:higherKinds",
   "-Ypartial-unification"
 )
+
+assemblyOutputPath in assembly := baseDirectory.value / "target" / "points.jar"
 
 val Version = new {
   val monix = "3.0.0-RC3"
