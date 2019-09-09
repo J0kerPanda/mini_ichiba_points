@@ -3,8 +3,7 @@ package com.rakuten.market.points.storage.core
 import java.time.Instant
 
 import com.rakuten.market.points.data.{PointsInfo, PointsTransaction, UserId}
-import com.rakuten.market.points.storage.impl.{PointsStorage => QuillStorage}
-import com.rakuten.market.points.storage.util.PostgresContext
+import com.rakuten.market.points.storage.impl.{PostgresContext, PointsStorage => QuillStorage}
 import monix.eval.Task
 
 object PointsStorage {

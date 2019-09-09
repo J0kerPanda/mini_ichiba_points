@@ -4,10 +4,11 @@ import java.sql.{Timestamp, Types}
 import java.time.Instant
 import java.util.UUID
 
-import com.rakuten.market.points.storage.util.PostgresContext
-import io.getquill.MappedEncoding
+import io.getquill.{MappedEncoding, PostgresMonixJdbcContext, SnakeCase}
 
 package object impl {
+
+  type PostgresContext = PostgresMonixJdbcContext[SnakeCase]
 
   implicit val encodeUUID: MappedEncoding[UUID, String] =
     MappedEncoding[UUID, String](_.toString)

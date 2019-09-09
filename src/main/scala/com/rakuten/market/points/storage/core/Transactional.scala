@@ -1,6 +1,6 @@
 package com.rakuten.market.points.storage.core
 
-import com.rakuten.market.points.storage.util.PostgresContext
+import com.rakuten.market.points.storage.impl.PostgresContext
 import monix.eval.{Task, TaskLift}
 
 object Transactional {

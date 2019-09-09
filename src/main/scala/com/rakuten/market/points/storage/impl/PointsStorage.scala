@@ -5,10 +5,11 @@ import java.time.Instant
 import cats.syntax.functor._
 import com.rakuten.market.points.data.{PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.core.{PointsStorage => CorePointsStorage}
-import com.rakuten.market.points.storage.util.PostgresContext
 import monix.eval.Task
 
-private[storage] class PointsStorage(implicit ctx: PostgresContext) extends CorePointsStorage[Task] {
+private[storage] class PointsStorage(protected implicit val ctx: PostgresContext)
+  extends CorePointsStorage[Task] with Quotes {
+
   import Schema._
   import ctx._
 
@@ -22,7 +23,14 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
       points.filter(_.userId == lift(userId))
     }.map(_.headOption)
 
-  override def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction.Confirmed]] = ???
+  override def getTransactionHistory(userId: UserId,
+                                     from: Instant,
+                                     to: Instant): Task[List[PointsTransaction.Confirmed]] =
+    ctx.run {
+      confirmedTransaction.filter { t =>
+        t.time >= lift(from) && t.time <= lift(to) && t.userId == lift(userId)
+      }
+    }
 
   override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
     ctx.run {
@@ -55,7 +63,6 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
             )
           }
         }
-        _ <- Task.delay(throw new Exception("oops"))
         _ <- ctx.run {
           pendingTransacton.filter(_.id == lift(id)).delete
         }
@@ -65,5 +72,8 @@ private[storage] class PointsStorage(implicit ctx: PostgresContext) extends Core
       } yield i1.nonEmpty
     }
 
-  override def removePendingTransactions(from: Instant): Task[Unit] = ???
+  override def removePendingTransactions(from: Instant): Task[Unit] =
+    ctx.run {
+      confirmedTransaction.filter(_.time <= lift(from)).delete
+    }.void
 }

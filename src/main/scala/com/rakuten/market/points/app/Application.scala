@@ -5,7 +5,7 @@ import cats.effect.ExitCode
 import com.rakuten.market.points.api.core.{Api, PointsApiService}
 import com.rakuten.market.points.settings.{ApplicationSettings, ServerSettings}
 import com.rakuten.market.points.storage.core.PointsStorage
-import com.rakuten.market.points.storage.util.PostgresContext
+import com.rakuten.market.points.storage.impl.PostgresContext
 import io.getquill.context.monix.Runner
 import io.getquill.{PostgresMonixJdbcContext, SnakeCase}
 import monix.eval.{Task, TaskApp}
