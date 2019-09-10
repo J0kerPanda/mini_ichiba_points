@@ -1,5 +1,7 @@
 package com.rakuten.market.points.api.impl.request
 
-import com.rakuten.market.points.data.{Points, UserId}
+import java.time.Instant
 
-private[impl] case class ChangePointsRequest(userId: UserId, amount: Points.Amount)
+import com.rakuten.market.points.data.Points
+
+private[impl] case class ChangePointsRequest(amount: Points.Amount, expires: Option[Instant])

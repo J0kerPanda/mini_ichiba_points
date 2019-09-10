@@ -1,3 +1,8 @@
 package com.rakuten.market.points.api.core
 
-case class ServiceError(t: Throwable)
+sealed trait ServiceError
+
+case object InvalidRequest extends ServiceError
+case object ConsistencyError extends ServiceError
+case object EntityNotFound extends ServiceError
+case class UnknownServiceError(t: Throwable) extends ServiceError

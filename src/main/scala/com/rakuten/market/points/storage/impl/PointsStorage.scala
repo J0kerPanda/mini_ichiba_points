@@ -3,7 +3,9 @@ package com.rakuten.market.points.storage.impl
 import java.time.Instant
 
 import cats.syntax.functor._
-import com.rakuten.market.points.data.{PointsInfo, PointsTransaction, UserId}
+import com.rakuten.market.points.data
+import com.rakuten.market.points.data.Points.Amount
+import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.core.{PointsStorage => CorePointsStorage}
 import monix.eval.Task
 
@@ -23,10 +25,16 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       points.filter(_.userId == lift(userId))
     }.map(_.headOption)
 
-  override def getCurrentExpiringTransactions(userId: UserId): Task[List[PointsTransaction.Confirmed]] =
+  override def getCurrentExpiringPoints(userId: UserId): Task[List[Points.Expiring]] =
     ctx.run {
-      confirmedTransaction.filter(t => t.userId == lift(userId) && t.expires.nonEmpty)
-    }
+      expiringPoints.filter(_.userId == lift(userId))
+    }.map(_.map(p => Points.Expiring(p.amount, p.expires)))
+
+  override def getPendingTransactionsTotalPayment(userId: UserId): Task[Points.Amount] =
+    ctx.run {
+      pendingTransacton.map(_.amount).filter(_ < 0).sum
+    }.map(_.getOrElse(0))
+
 
   override def getTransactionHistory(userId: UserId,
                                      from: Instant,
@@ -38,9 +46,22 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
     }
 
   override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
-    ctx.run {
-      pendingTransacton.insert(lift(transaction))
-    }.void
+    ctx.transaction {
+      for {
+        res <- ctx.run {
+          pendingTransacton.insert(lift(transaction))
+        }.void
+        _ <- transaction match {
+          case PointsTransaction.Pending(id, userId, _, amount, Some(expires), _, _) =>
+            ctx.run {
+              query[ExpiringPoints].insert(lift(ExpiringPoints(id, userId, amount, expires)))
+            }
+          case _ =>
+            Task.unit
+        }
+      } yield res
+    }
+
 
   override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] =
     ctx.transaction {
@@ -61,7 +82,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
           points.join(pendingTransacton.filter(_.id == lift(id))).on(_.userId == _.userId)
         }
         _ <- ctx.run {
-          liftQuery(i1).foreach { case (_, t) =>
+          liftQuery(i1.map(_._2)).foreach { t =>
             confirmedTransaction.insert(
               _.id -> t.id, _.userId -> t.userId, _.time -> t.time, _.amount -> t.amount,
               _.expires -> t.expires, _.total -> t.total, _.comment -> t.comment
@@ -72,7 +93,14 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
           pendingTransacton.filter(_.id == lift(id)).delete
         }
         _ <- ctx.run {
-          liftQuery(i1).foreach { case (info, trans) => points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount)) }
+          liftQuery(i1.map(_._2).filter(_.expires.nonEmpty)).foreach { t =>
+            expiringPoints.insert(ExpiringPoints(t.id, t.userId, t.amount, t.expires.orNull))
+          }
+        }
+        _ <- ctx.run {
+          liftQuery(i1).foreach { case (info, trans) =>
+            points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount))
+          }
         }
       } yield i1.nonEmpty
     }

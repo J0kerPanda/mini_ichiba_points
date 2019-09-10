@@ -3,7 +3,7 @@ package com.rakuten.market.points.api.impl
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.rakuten.market.points.api.core.{Api, PointsApiService => CoreApiService}
+import com.rakuten.market.points.api.core.{Api, ServiceResult, PointsApiService => CoreApiService}
 import com.rakuten.market.points.api.impl.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
 import com.rakuten.market.points.api.impl.response.TransactionStartedResponse
 import io.circe.generic.auto._
@@ -23,39 +23,27 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
   private implicit def decoder[E: Decoder]: EntityDecoder[F, E] = instances.jsonOf
   private implicit def encoder[E: Encoder]: EntityEncoder[F, E] = instances.jsonEncoderOf
 
-  //todo make a separate format for points info
   val userRoutes: HttpRoutes[F] = auth.service.liftService(TSecAuthService {
     case GET -> Root / "points" asAuthed claims =>
       service.getPointsInfo(claims.userId).flatMap(Ok(_))
 
-    case req @ POST -> Root / "points" asAuthed _ =>
+    case req @ POST -> Root / "points" asAuthed claims =>
       req.request.as[ChangePointsRequest]
         .flatMap { r =>
-          service.changePoints(r.amount)(r.userId)
-        }
-        .flatMap {
-          case Left(e) => BadRequest()
-          case Right(_) => Ok()
+          wrap(service.changePoints(r.amount)(claims.userId))(_ => Ok())
         }
 
-    case req @ POST -> Root / "transaction" / "start" asAuthed _ =>
+    case req @ POST -> Root / "transaction" / "start" asAuthed claims =>
       req.request.as[TransactPointsRequest]
         .flatMap { r =>
-          service.startPointsTransaction(r.amount)(r.userId)
-        }
-        .flatMap {
-          case Left(e) => BadRequest()
-          case Right(id) => Ok(TransactionStartedResponse(id))
+          wrap(service.startPointsTransaction(r.amount)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
         }
 
-    case req @ POST -> Root / "transaction" / "confirm"  asAuthed _ =>
+    //todo check same userId?
+    case req @ POST -> Root / "transaction" / "confirm" asAuthed _ =>
       req.request.as[ConfirmTransactionRequest]
         .flatMap { r =>
-          service.confirmPointsTransaction(r.id)
-        }
-        .flatMap {
-          case Left(e) => BadRequest()
-          case Right(_) => Ok()
+          wrap(service.confirmPointsTransaction(r.id))(_ => Ok())
         }
   })
 
@@ -66,4 +54,11 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
 
   override val routes: HttpRoutes[F] =
     Router(root -> userRoutes, root -> testRoutes)
+
+  //todo log errors?
+  private def wrap[A](result: F[ServiceResult[A]])(f: A => F[Response[F]]): F[Response[F]] =
+    result.flatMap {
+      case Right(res) => f(res)
+      case Left(_) => InternalServerError()
+    }
 }

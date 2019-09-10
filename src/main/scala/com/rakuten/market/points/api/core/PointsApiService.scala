@@ -22,9 +22,9 @@ trait PointsApiService[F[_]] {
 
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): F[List[PointsTransaction.Confirmed]]
 
-  def changePoints(amount: Points.Amount)(userId: UserId): F[ServiceResult[Unit]]
+  def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): F[ServiceResult[Unit]]
 
-  def startPointsTransaction(amount: Points.Amount)(userId: UserId): F[ServiceResult[PointsTransaction.Id]]
+  def startPointsTransaction(amount: Points.Amount, expires: Option[Instant])(userId: UserId): F[ServiceResult[PointsTransaction.Id]]
 
   def confirmPointsTransaction(transactionId: PointsTransaction.Id): F[ServiceResult[Unit]]
 }

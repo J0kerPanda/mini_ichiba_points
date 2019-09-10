@@ -49,4 +49,17 @@ private[impl] object Schema {
       )
     }
   }
+
+  def expiringPoints(implicit ctx: PostgresContext) = {
+    import ctx._
+    quote {
+      querySchema[ExpiringPoints](
+        "expiring_points",
+        _.transactionId -> "transaction_id",
+        _.userId -> "user_id",
+        _.amount -> "amount",
+        _.expires -> "expires"
+      )
+    }
+  }
 }

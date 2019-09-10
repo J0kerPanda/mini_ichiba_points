@@ -30,5 +30,5 @@ CREATE TABLE expiring_points(
   transaction_id UUID NOT NULL REFERENCES transaction(id),
   user_id UUID NOT NULL REFERENCES points(user_id),
   amount INT NOT NULL CHECK (amount >= 0),
-  expiry_timestamp TIMESTAMP NOT NULL
+  expires TIMESTAMP NOT NULL
 );
