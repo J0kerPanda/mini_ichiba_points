@@ -39,7 +39,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
 
   override def getTotalPendingDeduction(userId: UserId): Task[Points.Amount] =
     ctx.run {
-      pendingTransacton.map(_.amount).filter(_ < 0).sum
+      pendingTransaction.map(_.amount).filter(_ < 0).sum
     }.map(_.getOrElse(0))
 
   override def getTransactionHistory(userId: UserId,
@@ -55,7 +55,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
     ctx.transaction {
       for {
         res <- ctx.run {
-          pendingTransacton.insert(lift(transaction))
+          pendingTransaction.insert(lift(transaction))
         }.void
         _ <- transaction match {
           case PointsTransaction.Pending(id, userId, _, amount, Some(expires), _, _) =>
@@ -98,13 +98,15 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       } yield res
     }
 
-  override def confirmTransaction(id: PointsTransaction.Id): Task[Boolean] = {
+  override def confirmTransaction(userId: UserId, id: PointsTransaction.Id): Task[Boolean] = {
     import cats.instances.list._
     ctx.transaction {
       for {
         // Find transaction and points info
         joined <- ctx.run {
-          query[PointsInfo].join(query[PointsTransaction.Pending].filter(_.id == lift(id))).on(_.userId == _.userId)
+          points
+            .join(pendingTransaction.filter(t => t.id == lift(id) && t.userId == lift(userId)))
+            .on(_.userId == _.userId)
         }
         transaction = joined.map(_._2)
         // Save confirmed transaction
@@ -118,7 +120,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
         }
         // Remove pending transaction
         _ <- ctx.run {
-          pendingTransacton.filter(_.id == lift(id)).delete
+          pendingTransaction.filter(_.id == lift(id)).delete
         }
         // Add records to expiring points if required
         _ <- ctx.run {

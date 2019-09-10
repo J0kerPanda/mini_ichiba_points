@@ -19,7 +19,7 @@ private[impl] object Schema {
     }
   }
 
-  def pendingTransacton(implicit ctx: PostgresContext) = {
+  def pendingTransaction(implicit ctx: PostgresContext) = {
     import ctx._
     quote {
       querySchema[PointsTransaction.Pending](

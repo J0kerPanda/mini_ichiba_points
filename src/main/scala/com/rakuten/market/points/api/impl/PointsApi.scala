@@ -3,7 +3,7 @@ package com.rakuten.market.points.api.impl
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.rakuten.market.points.api.core.{Api, ServiceResult, PointsApiService => CoreApiService}
+import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.api.impl.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
 import com.rakuten.market.points.api.impl.response.TransactionStartedResponse
 import io.circe.generic.auto._
@@ -40,10 +40,10 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
         }
 
     //todo check same userId?
-    case req @ POST -> Root / "transaction" / "confirm" asAuthed _ =>
+    case req @ POST -> Root / "transaction" / "confirm" asAuthed claims =>
       req.request.as[ConfirmTransactionRequest]
         .flatMap { r =>
-          wrap(service.confirmPointsTransaction(r.id))(_ => Ok())
+          wrap(service.confirmPointsTransaction(r.id)(claims.userId))(_ => Ok())
         }
   })
 
@@ -59,6 +59,11 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
   private def wrap[A](result: F[ServiceResult[A]])(f: A => F[Response[F]]): F[Response[F]] =
     result.flatMap {
       case Right(res) => f(res)
-      case Left(_) => InternalServerError()
+      case Left(err) =>
+        err match {
+          case InvalidRequest => BadRequest()
+          case EntityNotFound => NotFound()
+          case UnknownServiceError(_) => InternalServerError()
+        }
     }
 }

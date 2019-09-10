@@ -26,5 +26,5 @@ trait PointsApiService[F[_]] {
 
   def startPointsTransaction(amount: Points.Amount, expires: Option[Instant])(userId: UserId): F[ServiceResult[PointsTransaction.Id]]
 
-  def confirmPointsTransaction(transactionId: PointsTransaction.Id): F[ServiceResult[Unit]]
+  def confirmPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): F[ServiceResult[Unit]]
 }

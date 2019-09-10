@@ -4,7 +4,8 @@ import java.time.Instant
 
 import cats.syntax.either._
 import cats.syntax.flatMap._
-import com.rakuten.market.points.api.core.{ConsistencyError, EntityNotFound, ServiceError, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
+import cats.syntax.functor._
+import com.rakuten.market.points.api.core.{EntityNotFound, InvalidRequest, ServiceError, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.data._
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
 import com.rakuten.market.points.util.IdUtils._
@@ -27,38 +28,33 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction.Confirmed]] =
     pointsStorage.getTransactionHistory(userId, from, to)
 
-  def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] =
-    //todo check points info
+  def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] = {
+    import cats.instances.either._
     T.transact {
       for {
         pointsInfo <- ensurePointsRecordExists(userId)
         time <- serverTime[Task]
         id <- generateTransactionId[Task]
         transaction = PointsTransaction.Confirmed(id, userId, time, amount, expires, pointsInfo.total, None)
-        _ <- pointsStorage.saveTransaction(transaction)
-      } yield Right(())
+        res <- saveConsistently(pointsInfo, transaction)
+      } yield res.void
     }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
+  }
 
   def startPointsTransaction(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[PointsTransaction.Id]] =
     T.transact {
-      //todo check points info + pendingTransactionsTotal
       for {
         pointsInfo <- ensurePointsRecordExists(userId)
-        pendingDeduction <- pointsStorage.getTotalPendingDeduction(userId)
-        res <- if (pointsInfo.total - pendingDeduction >= 0)
-          for {
-            time <- serverTime[Task]
-            id <- generateTransactionId[Task]
-            transaction = PointsTransaction.Pending(id, userId, time, amount, expires, pointsInfo.total, None)
-            _ <- pointsStorage.saveTransaction(transaction)
-          } yield Right(id)
-        else Task.pure(Left(ConsistencyError))
+        time <- serverTime[Task]
+        id <- generateTransactionId[Task]
+        transaction = PointsTransaction.Pending(id, userId, time, amount, expires, pointsInfo.total, None)
+        res <- saveConsistently(pointsInfo, transaction)
       } yield res
     }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
 
-  def confirmPointsTransaction(transactionId: PointsTransaction.Id): Task[ServiceResult[Unit]] =
+  def confirmPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): Task[ServiceResult[Unit]] =
     pointsStorage
-      .confirmTransaction(transactionId)
+      .confirmTransaction(userId, transactionId)
       .map { confirmed =>
         if (confirmed)
           Either.right[ServiceError, Unit](())
@@ -77,4 +73,22 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
           val info = PointsInfo.empty(userId)
           pointsStorage.savePointsInfo(info) >> Task.pure(info)
       }
+
+  private def saveConsistently(pointsInfo: PointsInfo,
+                               transaction: PointsTransaction): Task[ServiceResult[PointsTransaction.Id]] = {
+    val check = if (transaction.amount > 0)
+      Task.pure(true)
+    else
+      pointsStorage
+        .getTotalPendingDeduction(transaction.userId)
+        .map(pendingDeduction =>(pointsInfo.total - pendingDeduction + transaction.amount) >= 0)
+
+    check.ifM(
+      ifTrue = transaction match {
+        case t: PointsTransaction.Confirmed => pointsStorage.saveTransaction(t).as(Right(t.id))
+        case t: PointsTransaction.Pending => pointsStorage.saveTransaction(t).as(Right(t.id))
+      },
+      ifFalse = Task.pure(Left(InvalidRequest))
+    )
+  }
 }
