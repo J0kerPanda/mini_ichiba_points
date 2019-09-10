@@ -2,7 +2,10 @@ package com.rakuten.market.points.storage.impl
 
 import java.time.Instant
 
+import cats.data.OptionT
+import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.traverse._
 import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.core.{ExpiringPoints, PointsStorage => CorePointsStorage}
 import monix.eval.Task
@@ -70,48 +73,96 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
   override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] =
     ctx.transaction {
       for {
+        // Save confirmed transaction
         _ <- ctx.run {
           confirmedTransaction.insert(lift(transaction))
         }.void
+        // Update points info
         _ <- ctx.run {
           points.filter(_.userId == lift(transaction.userId)).update(p => p.total -> (p.total + lift(transaction.amount)))
         }
-      } yield ()
+        // Add records to expiring points if required
+        _ <- transaction.expires match {
+          case Some(expires) =>
+            ctx.run {
+              expiringPoints.insert(lift(ExpiringPoints(transaction.id, transaction.userId, transaction.amount, expires)))
+            }
+          case None =>
+            Task.unit
+        }
+        // Remove expiring points if required
+        res <- if (transaction.amount < 0)
+          subtractFromPendingPoints(transaction.userId, -transaction.amount)
+        else
+          Task.unit
+      } yield res
     }
 
-  override def confirmTransaction(id: PointsTransaction.Id): Task[Boolean] =
+  override def confirmTransaction(id: PointsTransaction.Id): Task[Boolean] = {
+    import cats.instances.list._
     ctx.transaction {
       for {
-        i1 <- ctx.run {
-          points.join(pendingTransacton.filter(_.id == lift(id))).on(_.userId == _.userId)
+        // Find transaction and points info
+        joined <- ctx.run {
+          query[PointsInfo].join(query[PointsTransaction.Pending].filter(_.id == lift(id))).on(_.userId == _.userId)
         }
+        transaction = joined.map(_._2)
+        // Save confirmed transaction
         _ <- ctx.run {
-          liftQuery(i1.map(_._2)).foreach { t =>
+          liftQuery(transaction).foreach { t =>
             confirmedTransaction.insert(
               _.id -> t.id, _.userId -> t.userId, _.time -> t.time, _.amount -> t.amount,
               _.expires -> t.expires, _.total -> t.total, _.comment -> t.comment
             )
           }
         }
+        // Remove pending transaction
         _ <- ctx.run {
           pendingTransacton.filter(_.id == lift(id)).delete
         }
+        // Add records to expiring points if required
         _ <- ctx.run {
-          liftQuery(i1.map(_._2).filter(_.expires.nonEmpty)).foreach { t =>
+          liftQuery(transaction.filter(_.expires.nonEmpty)).foreach { t =>
             expiringPoints.insert(ExpiringPoints(t.id, t.userId, t.amount, t.expires.orNull))
           }
         }
-        //todo subtract from expiring points if negative
+        // Remove expiring points if required
+        _ <- transaction
+          .filter(_.amount < 0)
+          .traverse(t => subtractFromPendingPoints(t.userId, -t.amount))
+        // Update points info
         _ <- ctx.run {
-          liftQuery(i1).foreach { case (info, trans) =>
+          liftQuery(joined).foreach { case (info, trans) =>
             points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount))
           }
         }
-      } yield i1.nonEmpty
+      } yield joined.nonEmpty
     }
+  }
 
   override def removePendingTransactions(from: Instant): Task[Unit] =
     ctx.run {
       confirmedTransaction.filter(_.time <= lift(from)).delete
     }.void
+
+  //todo check that invalid situation (negative points) impossible
+  private def subtractFromPendingPoints(userId: UserId, amount: Points.Amount): Task[Unit] =
+    OptionT(
+      ctx.run {
+        query[ExpiringPoints].filter(_.userId == lift(userId)).sortBy(_.expires)(Ord.desc).take(1)
+      }.map(_.headOption)
+    ).semiflatMap { exp =>
+      val newAmount = amount - exp.amount
+      if (exp.amount <= amount) {
+        ctx.run {
+          query[ExpiringPoints].filter(_.transactionId == lift(exp.transactionId)).delete
+        } >> subtractFromPendingPoints(userId, newAmount)
+      } else {
+        ctx.run {
+          query[ExpiringPoints]
+            .filter(_.transactionId == lift(exp.transactionId))
+            .update(p => p.amount -> (p.amount - lift(amount)))
+        }.void
+      }
+    }.value.void
 }

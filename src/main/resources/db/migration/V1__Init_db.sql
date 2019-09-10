@@ -9,7 +9,7 @@ CREATE TABLE points (
 CREATE TABLE transaction(
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES points(user_id),
-  amount INT NOT NULL,
+  amount INT NOT NULL CHECK (amount != 0),
   timestamp TIMESTAMP NOT NULL,
   expires TIMESTAMP NULL,
   total INT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE transaction(
 CREATE TABLE pending_transaction(
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES points(user_id),
-  amount INT NOT NULL,
+  amount INT NOT NULL CHECK (amount != 0),
   timestamp TIMESTAMP NOT NULL,
   expires TIMESTAMP NULL,
   total INT NOT NULL,
@@ -29,6 +29,6 @@ CREATE TABLE pending_transaction(
 CREATE TABLE expiring_points(
   transaction_id UUID NOT NULL REFERENCES transaction(id),
   user_id UUID NOT NULL REFERENCES points(user_id),
-  amount INT NOT NULL CHECK (amount >= 0),
+  amount INT NOT NULL CHECK (amount > 0),
   expires TIMESTAMP NOT NULL
 );
