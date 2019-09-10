@@ -29,6 +29,7 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
   def getTransactionHistory(from: Instant, to: Instant)(userId: UserId): Task[List[PointsTransaction.Confirmed]] =
     pointsStorage.getTransactionHistory(userId, from, to)
 
+  //todo check amount != 0 -> decoders for api or dependent types/???
   def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] = {
     import cats.instances.either._
     T.transact {

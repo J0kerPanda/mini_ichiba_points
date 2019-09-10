@@ -1,5 +1,7 @@
 package com.rakuten.market.points.api.impl
 
+import java.time.temporal.ChronoUnit
+
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -37,8 +39,16 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
     case GET -> Root / "points" / "expiring" asAuthed claims =>
       service.getExpiringPointsInfo(claims.userId).flatMap(points => Ok(ExpiringPointsResponse(points)))
 
-    case GET -> Root / "points" / "history" asAuthed claims =>
-      service.getTransactionHistory(???, ???)(claims.userId)
+    case GET -> Root / "points" / "history" :? FromQPM(from) +& ToQPM(to) asAuthed claims =>
+      service.getTransactionHistory(from, to)(claims.userId)
+        .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
+
+    case GET -> Root / "points" / "history" :? ToQPM(to) asAuthed claims =>
+      service.getTransactionHistory(to.minus(6, ChronoUnit.MONTHS), to)(claims.userId)
+        .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
+
+    case GET -> Root / "points" / "history" :? FromQPM(from) asAuthed claims =>
+      service.getTransactionHistory(from, from.plus(6, ChronoUnit.MONTHS))(claims.userId)
         .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
 
     case req @ POST -> Root / "transaction" / "start" asAuthed claims =>
