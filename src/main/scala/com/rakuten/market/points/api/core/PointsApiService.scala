@@ -20,11 +20,13 @@ trait PointsApiService[F[_]] {
 
   def getExpiringPointsInfo(userId: UserId): F[List[Points.Expiring]]
 
-  def getTransactionHistory(userId: UserId, from: Instant, to: Instant): F[List[PointsTransaction.Confirmed]]
+  def getTransactionHistory(from: Instant, to: Instant)(userId: UserId): F[List[PointsTransaction.Confirmed]]
 
   def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): F[ServiceResult[Unit]]
 
   def startPointsTransaction(amount: Points.Amount, expires: Option[Instant])(userId: UserId): F[ServiceResult[PointsTransaction.Id]]
+
+  def cancelPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): F[ServiceResult[Unit]]
 
   def confirmPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): F[ServiceResult[Unit]]
 }

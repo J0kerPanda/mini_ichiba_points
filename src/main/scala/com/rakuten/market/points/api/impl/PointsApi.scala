@@ -3,9 +3,10 @@ package com.rakuten.market.points.api.impl
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
-import com.rakuten.market.points.api.impl.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
-import com.rakuten.market.points.api.impl.response.TransactionStartedResponse
+import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError}
+import com.rakuten.market.points.api.core.{PointsApiService => CoreApiService}
+import com.rakuten.market.points.api.impl.request._
+import com.rakuten.market.points.api.impl.response._
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s._
@@ -24,14 +25,21 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
   private implicit def encoder[E: Encoder]: EntityEncoder[F, E] = instances.jsonEncoderOf
 
   val userRoutes: HttpRoutes[F] = auth.service.liftService(TSecAuthService {
-    case GET -> Root / "points" asAuthed claims =>
-      service.getPointsInfo(claims.userId).flatMap(Ok(_))
-
     case req @ POST -> Root / "points" asAuthed claims =>
       req.request.as[ChangePointsRequest]
         .flatMap { r =>
           wrap(service.changePoints(r.amount, r.expires)(claims.userId))(_ => Ok())
         }
+
+    case GET -> Root / "points" / "info" asAuthed claims =>
+      service.getPointsInfo(claims.userId).flatMap(Ok(_))
+
+    case GET -> Root / "points" / "expiring" asAuthed claims =>
+      service.getExpiringPointsInfo(claims.userId).flatMap(points => Ok(ExpiringPointsResponse(points)))
+
+    case GET -> Root / "points" / "history" asAuthed claims =>
+      service.getTransactionHistory(???, ???)(claims.userId)
+        .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
 
     case req @ POST -> Root / "transaction" / "start" asAuthed claims =>
       req.request.as[TransactPointsRequest]
@@ -39,9 +47,14 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
           wrap(service.startPointsTransaction(r.amount, r.expires)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
         }
 
-    //todo check same userId?
+    case req @ POST -> Root / "transaction" / "cancel" asAuthed claims =>
+      req.request.as[TransactionRequest]
+        .flatMap { r =>
+          wrap(service.cancelPointsTransaction(r.id)(claims.userId))(_ => Ok())
+        }
+
     case req @ POST -> Root / "transaction" / "confirm" asAuthed claims =>
-      req.request.as[ConfirmTransactionRequest]
+      req.request.as[TransactionRequest]
         .flatMap { r =>
           wrap(service.confirmPointsTransaction(r.id)(claims.userId))(_ => Ok())
         }

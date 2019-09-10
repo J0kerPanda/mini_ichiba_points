@@ -6,6 +6,7 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.rakuten.market.points.api.core.{EntityNotFound, InvalidRequest, ServiceError, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
+import com.rakuten.market.points.data.PointsTransaction.Id
 import com.rakuten.market.points.data._
 import com.rakuten.market.points.storage.core.{PointsStorage, Transactional}
 import com.rakuten.market.points.util.IdUtils._
@@ -25,7 +26,7 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
       points <- pointsStorage.getCurrentExpiringPoints(userId)
     } yield points.map(p => Points.Expiring(p.amount, p.expires))
 
-  def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction.Confirmed]] =
+  def getTransactionHistory(from: Instant, to: Instant)(userId: UserId): Task[List[PointsTransaction.Confirmed]] =
     pointsStorage.getTransactionHistory(userId, from, to)
 
   def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] = {
@@ -51,6 +52,17 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
         res <- saveConsistently(pointsInfo, transaction)
       } yield res
     }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
+
+  override def cancelPointsTransaction(transactionId: Id)(userId: UserId): Task[ServiceResult[Unit]] =
+    pointsStorage
+      .removePendingTransaction(userId, transactionId)
+      .map { removed =>
+        if (removed)
+          Either.right[ServiceError, Unit](())
+        else
+          Either.left[ServiceError, Unit](EntityNotFound)
+      }
+      .onErrorHandle(e => Either.left(UnknownServiceError(e)))
 
   def confirmPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): Task[ServiceResult[Unit]] =
     pointsStorage
@@ -85,8 +97,10 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
 
     check.ifM(
       ifTrue = transaction match {
-        case t: PointsTransaction.Confirmed => pointsStorage.saveTransaction(t).as(Right(t.id))
-        case t: PointsTransaction.Pending => pointsStorage.saveTransaction(t).as(Right(t.id))
+        case t: PointsTransaction.Confirmed =>
+          pointsStorage.saveTransaction(t).as(Right(t.id))
+        case t: PointsTransaction.Pending =>
+          pointsStorage.saveTransaction(t).as(Right(t.id))
       },
       ifFalse = Task.pure(Left(InvalidRequest))
     )

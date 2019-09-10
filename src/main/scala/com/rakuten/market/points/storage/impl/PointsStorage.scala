@@ -6,6 +6,7 @@ import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
+import com.rakuten.market.points.data
 import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.core.{ExpiringPoints, PointsStorage => CorePointsStorage}
 import monix.eval.Task
@@ -48,7 +49,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
     ctx.run {
       confirmedTransaction.filter { t =>
         t.time >= lift(from) && t.time <= lift(to) && t.userId == lift(userId)
-      }
+      }.sortBy(_.time)(Ord.desc)
     }
 
   override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
@@ -142,9 +143,14 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
     }
   }
 
+  override def removePendingTransaction(userId: UserId, id: PointsTransaction.Id): Task[Boolean] =
+    ctx.run {
+      pendingTransaction.filter(t => t.id == lift(id) && t.userId == lift(userId)).delete
+    }.map(_ > 0)
+
   override def removePendingTransactions(from: Instant): Task[Unit] =
     ctx.run {
-      confirmedTransaction.filter(_.time <= lift(from)).delete
+      pendingTransaction.filter(_.time <= lift(from)).delete
     }.void
 
   //todo check that invalid situation (negative points) impossible
