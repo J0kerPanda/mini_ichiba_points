@@ -23,6 +23,11 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       points.filter(_.userId == lift(userId))
     }.map(_.headOption)
 
+  override def getCurrentExpiringTransactions(userId: UserId): Task[List[PointsTransaction.Confirmed]] =
+    ctx.run {
+      confirmedTransaction.filter(t => t.userId == lift(userId) && t.expires.nonEmpty)
+    }
+
   override def getTransactionHistory(userId: UserId,
                                      from: Instant,
                                      to: Instant): Task[List[PointsTransaction.Confirmed]] =

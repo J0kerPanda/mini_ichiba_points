@@ -4,8 +4,8 @@ import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.rakuten.market.points.api.core.{Api, PointsApiService => CoreApiService}
-import com.rakuten.market.points.api.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
-import com.rakuten.market.points.api.response.TransactionStartedResponse
+import com.rakuten.market.points.api.impl.request.{ChangePointsRequest, ConfirmTransactionRequest, TransactPointsRequest}
+import com.rakuten.market.points.api.impl.response.TransactionStartedResponse
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s._

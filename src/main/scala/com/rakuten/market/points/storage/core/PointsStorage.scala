@@ -18,6 +18,8 @@ trait PointsStorage[DBIO[_]] {
 
   def getPointsInfo(userId: UserId): DBIO[Option[PointsInfo]]
 
+  def getCurrentExpiringTransactions(userId: UserId): DBIO[List[PointsTransaction.Confirmed]]
+
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): DBIO[List[PointsTransaction.Confirmed]]
 
   def saveTransaction(transaction: PointsTransaction.Pending): DBIO[Unit]
