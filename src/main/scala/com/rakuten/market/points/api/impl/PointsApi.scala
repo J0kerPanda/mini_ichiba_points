@@ -30,13 +30,13 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
     case req @ POST -> Root / "points" asAuthed claims =>
       req.request.as[ChangePointsRequest]
         .flatMap { r =>
-          wrap(service.changePoints(r.amount)(claims.userId))(_ => Ok())
+          wrap(service.changePoints(r.amount, r.expires)(claims.userId))(_ => Ok())
         }
 
     case req @ POST -> Root / "transaction" / "start" asAuthed claims =>
       req.request.as[TransactPointsRequest]
         .flatMap { r =>
-          wrap(service.startPointsTransaction(r.amount)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
+          wrap(service.startPointsTransaction(r.amount, r.expires)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
         }
 
     //todo check same userId?

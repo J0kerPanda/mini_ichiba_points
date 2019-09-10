@@ -15,6 +15,8 @@ import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.generic.ProductHint
 import pureconfig.{CamelCase, ConfigFieldMapping}
+import cats.syntax.flatMap._
+import scala.concurrent.duration._
 
 object Application extends TaskApp {
 
@@ -26,7 +28,7 @@ object Application extends TaskApp {
       settings <- appSettings
       _ <- migrateDatabase
       pointsStorage = PointsStorage.postgres
-      _ = scheduledTasks(settings, pointsStorage).runAsyncAndForget(scheduler)
+      _ <- startScheduledTasks(settings, pointsStorage)
       service = PointsApiService.default(pointsStorage)
       api = Api.points("", settings.api.auth, service)
       exitCode <- runServer(api, settings.api.server)
@@ -57,8 +59,13 @@ object Application extends TaskApp {
     Task.delay(pureconfig.loadConfigOrThrow[ApplicationSettings])
   }
 
-  private def scheduledTasks(settings: ApplicationSettings,
+  private def startScheduledTasks(settings: ApplicationSettings,
                              storage: PointsStorage[Task]): Task[Unit] =
-    Schedule.removePendingTransactions(settings.points.transaction, storage)
-
+    Task.sleep(1.minute) >>
+    Task.gatherUnordered(
+      List(
+        Schedule.removePendingTransactions(settings.points.transaction, storage),
+        Schedule.removeExpiredPoints(settings.points.expiring, storage)
+      )
+    ).forkAndForget
 }

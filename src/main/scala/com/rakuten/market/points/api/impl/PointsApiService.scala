@@ -20,7 +20,9 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
       .map(_.getOrElse(PointsInfo.empty(userId)))
 
   def getExpiringPointsInfo(userId: UserId): Task[List[Points.Expiring]] =
-    pointsStorage.getCurrentExpiringPoints(userId)
+    for {
+      points <- pointsStorage.getCurrentExpiringPoints(userId)
+    } yield points.map(p => Points.Expiring(p.amount, p.expires))
 
   def getTransactionHistory(userId: UserId, from: Instant, to: Instant): Task[List[PointsTransaction.Confirmed]] =
     pointsStorage.getTransactionHistory(userId, from, to)
@@ -55,7 +57,8 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
     }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
 
   def confirmPointsTransaction(transactionId: PointsTransaction.Id): Task[ServiceResult[Unit]] =
-    pointsStorage.confirmTransaction(transactionId)
+    pointsStorage
+      .confirmTransaction(transactionId)
       .map { confirmed =>
         if (confirmed)
           Either.right[ServiceError, Unit](())
@@ -65,11 +68,13 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
       .onErrorHandle(e => Either.left(UnknownServiceError(e)))
 
   private def ensurePointsRecordExists(userId: UserId): Task[PointsInfo] =
-    pointsStorage.getPointsInfo(userId).flatMap {
-      case Some(info) =>
-        Task.pure(info)
-      case None =>
-        val info = PointsInfo.empty(userId)
-        pointsStorage.savePointsInfo(info) >> Task.pure(info)
-    }
+    pointsStorage
+      .getPointsInfo(userId)
+      .flatMap {
+        case Some(info) =>
+          Task.pure(info)
+        case None =>
+          val info = PointsInfo.empty(userId)
+          pointsStorage.savePointsInfo(info) >> Task.pure(info)
+      }
 }

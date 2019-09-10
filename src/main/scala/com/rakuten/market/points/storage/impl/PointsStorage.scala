@@ -3,11 +3,10 @@ package com.rakuten.market.points.storage.impl
 import java.time.Instant
 
 import cats.syntax.functor._
-import com.rakuten.market.points.data
-import com.rakuten.market.points.data.Points.Amount
 import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
-import com.rakuten.market.points.storage.core.{PointsStorage => CorePointsStorage}
+import com.rakuten.market.points.storage.core.{ExpiringPoints, PointsStorage => CorePointsStorage}
 import monix.eval.Task
+import monix.reactive.Observable
 
 private[storage] class PointsStorage(protected implicit val ctx: PostgresContext)
   extends CorePointsStorage[Task] with Quotes {
@@ -25,16 +24,20 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       points.filter(_.userId == lift(userId))
     }.map(_.headOption)
 
-  override def getCurrentExpiringPoints(userId: UserId): Task[List[Points.Expiring]] =
+  override def getCurrentExpiringPoints(userId: UserId): Task[List[ExpiringPoints]] =
     ctx.run {
       expiringPoints.filter(_.userId == lift(userId))
-    }.map(_.map(p => Points.Expiring(p.amount, p.expires)))
+    }
 
-  override def getPendingTransactionsTotalPayment(userId: UserId): Task[Points.Amount] =
+  override def getCurrentExpiringPoints(expireBefore: Instant): Observable[ExpiringPoints] =
+    ctx.stream {
+      expiringPoints.filter(_.expires <= lift(expireBefore))
+    }
+
+  override def getTotalPendingDeduction(userId: UserId): Task[Points.Amount] =
     ctx.run {
       pendingTransacton.map(_.amount).filter(_ < 0).sum
     }.map(_.getOrElse(0))
-
 
   override def getTransactionHistory(userId: UserId,
                                      from: Instant,
@@ -57,6 +60,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
               query[ExpiringPoints].insert(lift(ExpiringPoints(id, userId, amount, expires)))
             }
           case _ =>
+            //todo subtract from expiring points if negative
             Task.unit
         }
       } yield res
@@ -97,6 +101,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
             expiringPoints.insert(ExpiringPoints(t.id, t.userId, t.amount, t.expires.orNull))
           }
         }
+        //todo subtract from expiring points if negative
         _ <- ctx.run {
           liftQuery(i1).foreach { case (info, trans) =>
             points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount))

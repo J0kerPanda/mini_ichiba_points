@@ -5,6 +5,7 @@ import java.time.Instant
 import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.impl.{PostgresContext, PointsStorage => QuillStorage}
 import monix.eval.Task
+import monix.reactive.Observable
 
 object PointsStorage {
 
@@ -18,7 +19,9 @@ trait PointsStorage[DBIO[_]] {
 
   def getPointsInfo(userId: UserId): DBIO[Option[PointsInfo]]
 
-  def getCurrentExpiringPoints(userId: UserId): DBIO[List[Points.Expiring]]
+  def getCurrentExpiringPoints(userId: UserId): DBIO[List[ExpiringPoints]]
+
+  def getCurrentExpiringPoints(expireBefore: Instant): Observable[ExpiringPoints]
 
   /** @return (non-negative) amount of points to be deducted from user
     */

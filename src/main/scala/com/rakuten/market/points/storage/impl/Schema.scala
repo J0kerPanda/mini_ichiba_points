@@ -1,6 +1,7 @@
 package com.rakuten.market.points.storage.impl
 
 import com.rakuten.market.points.data.{PointsInfo, PointsTransaction}
+import com.rakuten.market.points.storage.core.ExpiringPoints
 
 private[impl] object Schema {
 
