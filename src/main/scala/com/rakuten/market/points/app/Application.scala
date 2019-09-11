@@ -60,12 +60,15 @@ object Application extends TaskApp {
   }
 
   private def startScheduledTasks(settings: ApplicationSettings,
-                             storage: PointsStorage[Task]): Task[Unit] =
-    Task.sleep(1.minute) >>
-    Task.gatherUnordered(
-      List(
-        Schedule.removePendingTransactions(settings.points.transaction, storage),
-        Schedule.removeExpiredPoints(settings.points.expiring, storage)
+                                  storage: PointsStorage[Task]): Task[Unit] = {
+    val start =
+      Task.sleep(10.seconds) >>
+      Task.gatherUnordered(
+        List(
+          Schedule.removePendingTransactions(settings.points.transaction, storage),
+          Schedule.removeExpiredPoints(settings.points.expiring, storage)
+        )
       )
-    ).forkAndForget
+    start.forkAndForget
+  }
 }

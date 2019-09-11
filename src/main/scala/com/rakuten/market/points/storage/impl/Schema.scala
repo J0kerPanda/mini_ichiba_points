@@ -3,10 +3,12 @@ package com.rakuten.market.points.storage.impl
 import com.rakuten.market.points.data.{PointsInfo, PointsTransaction}
 import com.rakuten.market.points.storage.core.ExpiringPoints
 
-private[impl] object Schema {
+private[impl] trait Schema {
 
-  def points(implicit ctx: PostgresContext) = {
-    import ctx._
+  protected implicit val ctx: PostgresContext
+  import ctx._
+
+  protected val points =
     quote {
       querySchema[PointsInfo](
         "points",
@@ -17,10 +19,8 @@ private[impl] object Schema {
         _.closestExpiring.map(_.expires) -> "closest_expiring_timestamp"
       )
     }
-  }
 
-  def pendingTransaction(implicit ctx: PostgresContext) = {
-    import ctx._
+  protected val pendingTransaction =
     quote {
       querySchema[PointsTransaction.Pending](
         "pending_transaction",
@@ -33,10 +33,8 @@ private[impl] object Schema {
         _.comment -> "comment"
       )
     }
-  }
 
-  def confirmedTransaction(implicit ctx: PostgresContext) = {
-    import ctx._
+  protected val confirmedTransaction =
     quote {
       querySchema[PointsTransaction.Confirmed](
         "transaction",
@@ -49,10 +47,8 @@ private[impl] object Schema {
         _.comment -> "comment"
       )
     }
-  }
 
-  def expiringPoints(implicit ctx: PostgresContext) = {
-    import ctx._
+  protected val expiringPoints =
     quote {
       querySchema[ExpiringPoints](
         "expiring_points",
@@ -62,5 +58,4 @@ private[impl] object Schema {
         _.expires -> "expires"
       )
     }
-  }
 }

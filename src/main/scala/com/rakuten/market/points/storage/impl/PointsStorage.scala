@@ -6,16 +6,15 @@ import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
-import com.rakuten.market.points.data
 import com.rakuten.market.points.data.{Points, PointsInfo, PointsTransaction, UserId}
 import com.rakuten.market.points.storage.core.{ExpiringPoints, PointsStorage => CorePointsStorage}
 import monix.eval.Task
 import monix.reactive.Observable
+import cats.syntax.applicative._
 
 private[storage] class PointsStorage(protected implicit val ctx: PostgresContext)
-  extends CorePointsStorage[Task] with Quotes {
+  extends CorePointsStorage[Task] with Quotes with Schema {
 
-  import Schema._
   import ctx._
 
   override def savePointsInfo(info: PointsInfo): Task[Unit] =
@@ -70,34 +69,27 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       } yield res
     }
 
-
-  override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] =
+  override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] = {
+    import cats.instances.option._
     ctx.transaction {
       for {
         // Save confirmed transaction
         _ <- ctx.run {
           confirmedTransaction.insert(lift(transaction))
-        }.void
-        // Update points info
-        _ <- ctx.run {
-          points.filter(_.userId == lift(transaction.userId)).update(p => p.total -> (p.total + lift(transaction.amount)))
         }
         // Add records to expiring points if required
-        _ <- transaction.expires match {
-          case Some(expires) =>
-            ctx.run {
-              expiringPoints.insert(lift(ExpiringPoints(transaction.id, transaction.userId, transaction.amount, expires)))
-            }
-          case None =>
-            Task.unit
+        _ <- transaction.expires.traverse { expires =>
+          ctx.run {
+            expiringPoints.insert(lift(ExpiringPoints(transaction.id, transaction.userId, transaction.amount, expires)))
+          }
         }
         // Remove expiring points if required
-        res <- if (transaction.amount < 0)
-          subtractFromPendingPoints(transaction.userId, -transaction.amount)
-        else
-          Task.unit
+        _ <- subtractFromPendingPoints(transaction.userId, -transaction.amount).whenA(transaction.amount < 0)
+        // Update points info
+        res <- updatePointsInfo(transaction.userId, transaction.amount)
       } yield res
     }
+  }
 
   override def confirmTransaction(userId: UserId, id: PointsTransaction.Id): Task[Boolean] = {
     import cats.instances.list._
@@ -134,12 +126,10 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
           .filter(_.amount < 0)
           .traverse(t => subtractFromPendingPoints(t.userId, -t.amount))
         // Update points info
-        _ <- ctx.run {
-          liftQuery(joined).foreach { case (info, trans) =>
-            points.filter(_.userId == info.userId).update(i => i.total -> (i.total + trans.amount))
-          }
+        res <- joined.traverse { case (_, trans) =>
+          updatePointsInfo(trans.userId, trans.amount)
         }
-      } yield joined.nonEmpty
+      } yield res.nonEmpty
     }
   }
 
@@ -153,6 +143,26 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       pendingTransaction.filter(_.time <= lift(from)).delete
     }.void
 
+  /** Change user points total by a given amount of points and refresh pending points information.
+    */
+  private def updatePointsInfo(userId: UserId, amount: Points.Amount): Task[Unit] =
+    for {
+      closestExpiring <- ctx.run {
+        expiringPoints.filter(_.userId == lift(userId)).sortBy(_.expires)(Ord.asc)
+      }.map(_.headOption.map(e => Points.Expiring(e.amount, e.expires)))
+      totalExpiring <- ctx.run {
+        expiringPoints.filter(_.userId == lift(userId)).map(_.amount).sum
+      }
+      _ <- ctx.run {
+        points.filter(_.userId == lift(userId)).update(
+          i => i.total -> (i.total + lift(amount)),
+          i => i.closestExpiring.map(_.value) -> lift(closestExpiring.map(_.value)),
+          i => i.closestExpiring.map(_.expires) -> lift(closestExpiring.map(_.expires)),
+          i => i.totalExpiring -> lift(totalExpiring.getOrElse(0))
+        )
+      }
+    } yield ()
+
   //todo check that invalid situation (negative points) impossible
   private def subtractFromPendingPoints(userId: UserId, amount: Points.Amount): Task[Unit] =
     OptionT(
@@ -162,10 +172,12 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
     ).semiflatMap { exp =>
       val newAmount = amount - exp.amount
       if (exp.amount <= amount) {
+        // Continue subtracting
         ctx.run {
           query[ExpiringPoints].filter(_.transactionId == lift(exp.transactionId)).delete
-        } >> subtractFromPendingPoints(userId, newAmount)
+        } >> subtractFromPendingPoints(userId, newAmount).whenA(newAmount > 0)
       } else {
+        //
         ctx.run {
           query[ExpiringPoints]
             .filter(_.transactionId == lift(exp.transactionId))
