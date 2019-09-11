@@ -6,5 +6,6 @@ import java.util.UUID
 private[impl] case class OutputTransaction(id: UUID,
                                            time: Instant,
                                            amount: Int,
+                                           total: Int,
                                            expires: Option[Instant],
                                            comment: Option[String])

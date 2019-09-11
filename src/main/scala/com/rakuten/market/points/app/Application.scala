@@ -2,7 +2,7 @@ package com.rakuten.market.points.app
 
 
 import cats.effect.ExitCode
-import com.rakuten.market.points.api.core.{Api, PointsApiService}
+import com.rakuten.market.points.api.core.Api
 import com.rakuten.market.points.settings.{ApplicationSettings, ServerSettings}
 import com.rakuten.market.points.storage.core.PointsStorage
 import com.rakuten.market.points.storage.impl.PostgresContext
@@ -16,6 +16,8 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.generic.ProductHint
 import pureconfig.{CamelCase, ConfigFieldMapping}
 import cats.syntax.flatMap._
+import com.rakuten.market.points.service.core.PointsService
+
 import scala.concurrent.duration._
 
 object Application extends TaskApp {
@@ -28,8 +30,8 @@ object Application extends TaskApp {
       settings <- appSettings
       _ <- migrateDatabase
       pointsStorage = PointsStorage.postgres
-      _ <- startScheduledTasks(settings, pointsStorage)
-      service = PointsApiService.default(pointsStorage)
+      service = PointsService.default(settings.points.transaction, pointsStorage)
+      _ <- startScheduledTasks(settings, service)
       api = Api.points("", settings.api.auth, service)
       exitCode <- runServer(api, settings.api.server)
     } yield exitCode
@@ -60,13 +62,13 @@ object Application extends TaskApp {
   }
 
   private def startScheduledTasks(settings: ApplicationSettings,
-                                  storage: PointsStorage[Task]): Task[Unit] = {
+                                  service: PointsService[Task]): Task[Unit] = {
     val start =
       Task.sleep(10.seconds) >>
       Task.gatherUnordered(
         List(
-          Schedule.removePendingTransactions(settings.points.transaction, storage),
-          Schedule.removeExpiredPoints(settings.points.expiring, storage)
+          Schedule.removeExpiredTransactions(settings.points.transaction, service),
+          Schedule.removeExpiredPoints(settings.points.expiring, service)
         )
       )
     start.forkAndForget

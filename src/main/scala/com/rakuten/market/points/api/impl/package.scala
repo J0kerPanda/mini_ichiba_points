@@ -8,9 +8,6 @@ import io.circe.generic.semiauto._
 
 package object impl extends AutoDerivation {
 
-  implicit val outputExpiringPointsEncoder: Encoder[OutputExpiringPoints] =
-    deriveEncoder[OutputExpiringPoints]
-
   implicit val transactionsEncoder: Encoder[PointsTransaction.Confirmed] =
     deriveEncoder[OutputTransaction].contramap(t =>
       OutputTransaction(
@@ -18,6 +15,7 @@ package object impl extends AutoDerivation {
         time = t.time,
         amount = t.amount,
         expires = t.expires,
+        total = t.total,
         comment = t.comment
       )
     )

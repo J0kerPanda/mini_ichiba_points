@@ -1,13 +1,14 @@
 package com.rakuten.market.points.api.impl
 
-import java.time.{Instant, Period}
+import java.time.Period
 
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
+import com.rakuten.market.points.api.core.Api
 import com.rakuten.market.points.api.impl.request._
 import com.rakuten.market.points.api.impl.response._
+import com.rakuten.market.points.service.core._
 import com.typesafe.scalalogging.Logger
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s._
@@ -19,7 +20,7 @@ import tsec.authentication._
 
 private[api] class PointsApi[F[_]: Sync](val root: String,
                                          auth: JwtAuthService[F],
-                                         service: CoreApiService[F]) extends Http4sDsl[F] with Api[F] {
+                                         service: PointsService[F]) extends Http4sDsl[F] with Api[F] {
 
   private val log = Logger[PointsApi[F]]
   private val maxPeriod = Period.ofDays(180)
@@ -32,7 +33,8 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
     case req @ POST -> Root asAuthed claims =>
       req.request.as[ChangePointsRequest]
         .flatMap { r =>
-          wrap(service.changePoints(r.amount, r.expires)(claims.userId))(_ => Ok())
+          wrap(service.changePoints(r.amount, r.expires, r.comment)(claims.userId))
+            { _ => Ok() }
         }
 
     case GET -> Root / "info" asAuthed claims =>
@@ -58,19 +60,22 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
     case req @ POST -> Root / "start" asAuthed claims =>
       req.request.as[TransactPointsRequest]
         .flatMap { r =>
-          wrap(service.startPointsTransaction(r.amount, r.expires)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
+          wrap(service.startPointsTransaction(r.amount, r.expires, r.comment)(claims.userId))
+            { id => Ok(TransactionStartedResponse(id)) }
         }
 
     case req @ POST -> Root / "cancel" asAuthed claims =>
       req.request.as[TransactionRequest]
         .flatMap { r =>
-          wrap(service.cancelPointsTransaction(r.id)(claims.userId))(_ => Ok())
+          wrap(service.cancelPointsTransaction(r.id)(claims.userId))
+            { _ => Ok() }
         }
 
     case req @ POST -> Root / "confirm" asAuthed claims =>
       req.request.as[TransactionRequest]
         .flatMap { r =>
-          wrap(service.confirmPointsTransaction(r.id)(claims.userId))(_ => Ok())
+          wrap(service.confirmPointsTransaction(r.id)(claims.userId))
+            { _ => Ok() }
         }
   })
 

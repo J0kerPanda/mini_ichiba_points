@@ -4,4 +4,6 @@ import java.time.Instant
 
 import com.rakuten.market.points.data.Points
 
-private[impl] case class ChangePointsRequest(amount: Points.Amount, expires: Option[Instant])
+private[impl] case class ChangePointsRequest(amount: Points.Amount,
+                                             expires: Option[Instant],
+                                             comment: Option[String])

@@ -1,4 +1,4 @@
-package com.rakuten.market.points.api.core
+package com.rakuten.market.points.service.core
 
 sealed trait ServiceError
 

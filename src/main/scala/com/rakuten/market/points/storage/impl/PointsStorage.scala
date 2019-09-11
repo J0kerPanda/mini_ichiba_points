@@ -32,10 +32,12 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       expiringPoints.filter(_.userId == lift(userId))
     }
 
-  override def getCurrentExpiringPoints(expireBefore: Instant): Observable[ExpiringPoints] =
+  override def getCurrentExpiringPoints(expireBefore: Instant): Observable[ExpiringPoints] = {
+    println(expireBefore)
     ctx.stream {
       expiringPoints.filter(_.expires <= lift(expireBefore))
     }
+  }
 
   override def getTotalPendingDeduction(userId: UserId): Task[Points.Amount] =
     ctx.run {
@@ -160,7 +162,6 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       }.map(_.headOption)
     ).semiflatMap { exp =>
       val newAmount = amount - exp.amount
-      println(newAmount, exp.amount <= amount, exp.amount, amount)
       if (exp.amount <= amount) {
         // Continue subtracting
         ctx.run {
