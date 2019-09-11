@@ -29,6 +29,7 @@ dockerCommands in Docker ++= Seq(
 )
 
 dockerExposedPorts in Docker ++= Seq(8080)
+dockerUpdateLatest in Docker := true
 bashScriptExtraDefines += """addJava "-Ddb.dataSource.portNumber=$DB_PORT""""
 bashScriptExtraDefines += """addJava "-Ddb.dataSource.databaseName=$DB_NAME""""
 bashScriptExtraDefines += """addJava "-Ddb.dataSource.serverName=$DB_HOST""""
