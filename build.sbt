@@ -2,7 +2,7 @@ import com.typesafe.sbt.packager.docker._
 
 name := "mini_ichiba_points"
 
-version := "0.4"
+version := "0.5"
 scalaVersion := "2.12.9"
 
 // Compiler options
@@ -15,6 +15,7 @@ scalacOptions ++= Seq(
 // Docker deployment
 enablePlugins(JavaAppPackaging)
 dockerBaseImage := "openjdk:8-jre-alpine"
+version in Docker := "latest"
 packageName in Docker := "mini-ichiba-points"
 
 dockerCommands in Docker ++= Seq(
