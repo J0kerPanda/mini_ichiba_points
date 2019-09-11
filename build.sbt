@@ -1,15 +1,42 @@
+import com.typesafe.sbt.packager.docker._
+
 name := "mini_ichiba_points"
 
-version := "0.1"
+version := "0.3"
 scalaVersion := "2.12.9"
 
+// Compiler options
 scalacOptions ++= Seq(
   "-language:higherKinds",
   "-Ypartial-unification"
 )
 
-assemblyOutputPath in assembly := baseDirectory.value / "target" / "points.jar"
 
+// Docker deployment
+enablePlugins(JavaAppPackaging)
+dockerBaseImage := "openjdk:8-jre-alpine"
+packageName in Docker := "mini-ichiba-points"
+
+dockerCommands in Docker ++= Seq(
+  Cmd("USER", "root"),
+  Cmd("ENV", "DB_PORT", "5432"),
+  Cmd("ENV", "DB_NAME", "database"),
+  Cmd("ENV", "DB_HOST", "localhost"),
+  Cmd("ENV", "DB_USER", "root"),
+  Cmd("ENV", "DB_PASSWORD", "root"),
+  Cmd("ENV", "API_KEY", "test-keys"),
+  ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
+)
+
+dockerExposedPorts in Docker ++= Seq(8080)
+bashScriptExtraDefines += """addJava "-Ddb.dataSource.portNumber=$DB_PORT""""
+bashScriptExtraDefines += """addJava "-Ddb.dataSource.databaseName=$DB_NAME""""
+bashScriptExtraDefines += """addJava "-Ddb.dataSource.serverName=$DB_HOST""""
+bashScriptExtraDefines += """addJava "-Ddb.dataSource.user=$DB_USER""""
+bashScriptExtraDefines += """addJava "-Ddb.dataSource.password=$DB_PASSWORD""""
+bashScriptExtraDefines += """addJava "-Dapi.auth.signingKey=$API_KEY""""
+
+// Dependencies
 val Version = new {
   val monix = "3.0.0-RC3"
   val http4s = "0.21.0-M1"
@@ -17,7 +44,6 @@ val Version = new {
   val circe = "0.11.1"
   val postgresDriver = "42.2.6"
   val quill = "3.4.3"
-  val chimney = "0.3.2"
   val pureconfig = "0.11.1"
   val scalaLogging = "3.9.2"
   val logback = "1.2.3"
@@ -48,5 +74,6 @@ libraryDependencies ++= Seq(
   "org.flywaydb" % "flyway-core" % Version.flyway
 )
 
+// Compiler plugins
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
