@@ -30,51 +30,27 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
     pointsStorage.getTransactionHistory(userId, from, to)
 
   //todo check amount != 0 -> decoders for api or dependent types/???
-  def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] = {
-    import cats.instances.either._
+  def changePoints(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[Unit]] =
     T.transact {
-      for {
-        pointsInfo <- ensurePointsRecordExists(userId)
-        time <- serverTime[Task]
-        id <- generateTransactionId[Task]
-        transaction = PointsTransaction.Confirmed(id, userId, time, amount, expires, pointsInfo.total, None)
-        res <- saveConsistently(pointsInfo, transaction)
-      } yield res.void
-    }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
-  }
+      createConfirmedTransaction(userId, expires, amount).flatMap((saveConsistently _).tupled)
+    }.onErrorHandle(wrapUnknownError[PointsTransaction.Id]).map(_.map(_ => ()))
 
   def startPointsTransaction(amount: Points.Amount, expires: Option[Instant])(userId: UserId): Task[ServiceResult[PointsTransaction.Id]] =
     T.transact {
-      for {
-        pointsInfo <- ensurePointsRecordExists(userId)
-        time <- serverTime[Task]
-        id <- generateTransactionId[Task]
-        transaction = PointsTransaction.Pending(id, userId, time, amount, expires, pointsInfo.total, None)
-        res <- saveConsistently(pointsInfo, transaction)
-      } yield res
-    }.onErrorHandle(e => Either.left(UnknownServiceError(e)))
+      createPendingTransaction(userId, expires, amount).flatMap((saveConsistently _).tupled)
+    } .onErrorHandle(wrapUnknownError[PointsTransaction.Id])
 
   override def cancelPointsTransaction(transactionId: Id)(userId: UserId): Task[ServiceResult[Unit]] =
     pointsStorage
       .removePendingTransaction(userId, transactionId)
-      .map { removed =>
-        if (removed)
-          Either.right[ServiceError, Unit](())
-        else
-          Either.left[ServiceError, Unit](EntityNotFound)
-      }
-      .onErrorHandle(e => Either.left(UnknownServiceError(e)))
+      .map(wrapNotFoundError)
+      .onErrorHandle(wrapUnknownError)
 
   def confirmPointsTransaction(transactionId: PointsTransaction.Id)(userId: UserId): Task[ServiceResult[Unit]] =
     pointsStorage
       .confirmTransaction(userId, transactionId)
-      .map { confirmed =>
-        if (confirmed)
-          Either.right[ServiceError, Unit](())
-        else
-          Either.left[ServiceError, Unit](EntityNotFound)
-      }
-      .onErrorHandle(e => Either.left(UnknownServiceError(e)))
+      .map(wrapNotFoundError)
+      .onErrorHandle(wrapUnknownError)
 
   private def ensurePointsRecordExists(userId: UserId): Task[PointsInfo] =
     pointsStorage
@@ -87,6 +63,7 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
           pointsStorage.savePointsInfo(info) >> Task.pure(info)
       }
 
+  //todo validate transaction -> expires -> >0, != 0, etc
   private def saveConsistently(pointsInfo: PointsInfo,
                                transaction: PointsTransaction): Task[ServiceResult[PointsTransaction.Id]] = {
     val check = if (transaction.amount > 0)
@@ -106,4 +83,31 @@ private[api] class PointsApiService(pointsStorage: PointsStorage[Task])
       ifFalse = Task.pure(Left(InvalidRequest))
     )
   }
+
+  private def wrapNotFoundError(found: Boolean): ServiceResult[Unit] =
+    if (found)
+      Either.right[ServiceError, Unit](())
+    else
+      Either.left[ServiceError, Unit](EntityNotFound)
+
+  private def wrapUnknownError[A](e: Throwable): ServiceResult[A] =
+    Either.left(UnknownServiceError(e))
+
+  private def createConfirmedTransaction(userId: UserId,
+                                         expires: Option[Instant],
+                                         amount: Points.Amount): Task[(PointsInfo, PointsTransaction.Confirmed)] =
+    for {
+      pointsInfo <- ensurePointsRecordExists(userId)
+      time <- serverTime[Task]
+      id <- generateTransactionId[Task]
+    } yield (pointsInfo, PointsTransaction.Confirmed(id, userId, time, amount, expires, pointsInfo.total, None))
+
+  private def createPendingTransaction(userId: UserId,
+                                       expires: Option[Instant],
+                                       amount: Points.Amount): Task[(PointsInfo, PointsTransaction.Pending)] =
+    for {
+      pointsInfo <- ensurePointsRecordExists(userId)
+      time <- serverTime[Task]
+      id <- generateTransactionId[Task]
+    } yield (pointsInfo, PointsTransaction.Pending(id, userId, time, amount, expires, pointsInfo.total, None))
 }

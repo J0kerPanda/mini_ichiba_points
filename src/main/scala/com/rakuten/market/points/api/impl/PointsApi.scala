@@ -1,15 +1,14 @@
 package com.rakuten.market.points.api.impl
 
-import java.time.temporal.ChronoUnit
+import java.time.{Instant, Period}
 
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError}
-import com.rakuten.market.points.api.core.{PointsApiService => CoreApiService}
+import com.rakuten.market.points.api.core.{Api, EntityNotFound, InvalidRequest, ServiceResult, UnknownServiceError, PointsApiService => CoreApiService}
 import com.rakuten.market.points.api.impl.request._
 import com.rakuten.market.points.api.impl.response._
-import io.circe.generic.auto._
+import com.typesafe.scalalogging.Logger
 import io.circe.{Decoder, Encoder, Printer}
 import org.http4s._
 import org.http4s.circe.CirceInstances
@@ -22,48 +21,53 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
                                          auth: JwtAuthService[F],
                                          service: CoreApiService[F]) extends Http4sDsl[F] with Api[F] {
 
+  private val log = Logger[PointsApi[F]]
+  private val maxPeriod = Period.ofDays(180)
+
   private val instances: CirceInstances = CirceInstances.withPrinter(Printer.spaces2).build
   private implicit def decoder[E: Decoder]: EntityDecoder[F, E] = instances.jsonOf
   private implicit def encoder[E: Encoder]: EntityEncoder[F, E] = instances.jsonEncoderOf
 
-  val userRoutes: HttpRoutes[F] = auth.service.liftService(TSecAuthService {
-    case req @ POST -> Root / "points" asAuthed claims =>
+  val pointsRoutes: HttpRoutes[F] = auth.service.liftService(TSecAuthService {
+    case req @ POST -> Root asAuthed claims =>
       req.request.as[ChangePointsRequest]
         .flatMap { r =>
           wrap(service.changePoints(r.amount, r.expires)(claims.userId))(_ => Ok())
         }
 
-    case GET -> Root / "points" / "info" asAuthed claims =>
+    case GET -> Root / "info" asAuthed claims =>
       service.getPointsInfo(claims.userId).flatMap(Ok(_))
 
-    case GET -> Root / "points" / "expiring" asAuthed claims =>
+    case GET -> Root / "expiring" asAuthed claims =>
       service.getExpiringPointsInfo(claims.userId).flatMap(points => Ok(ExpiringPointsResponse(points)))
+  })
 
-    case GET -> Root / "points" / "history" :? FromQPM(from) +& ToQPM(to) asAuthed claims =>
+  val transactionRoutes: HttpRoutes[F] = auth.service.liftService(TSecAuthService {
+    case GET -> Root / "history" :? FromQPM(from) +& ToQPM(to) asAuthed claims =>
       service.getTransactionHistory(from, to)(claims.userId)
         .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
 
-    case GET -> Root / "points" / "history" :? ToQPM(to) asAuthed claims =>
-      service.getTransactionHistory(to.minus(6, ChronoUnit.MONTHS), to)(claims.userId)
+    case GET -> Root / "history" :? ToQPM(to) asAuthed claims =>
+      service.getTransactionHistory(to.minus(maxPeriod), to)(claims.userId)
         .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
 
-    case GET -> Root / "points" / "history" :? FromQPM(from) asAuthed claims =>
-      service.getTransactionHistory(from, from.plus(6, ChronoUnit.MONTHS))(claims.userId)
+    case GET -> Root / "history" :? FromQPM(from) asAuthed claims =>
+      service.getTransactionHistory(from, from.plus(maxPeriod))(claims.userId)
         .flatMap(trs => Ok(TransactionHistoryResponse(trs)))
 
-    case req @ POST -> Root / "transaction" / "start" asAuthed claims =>
+    case req @ POST -> Root / "start" asAuthed claims =>
       req.request.as[TransactPointsRequest]
         .flatMap { r =>
           wrap(service.startPointsTransaction(r.amount, r.expires)(claims.userId))(id => Ok(TransactionStartedResponse(id)))
         }
 
-    case req @ POST -> Root / "transaction" / "cancel" asAuthed claims =>
+    case req @ POST -> Root / "cancel" asAuthed claims =>
       req.request.as[TransactionRequest]
         .flatMap { r =>
           wrap(service.cancelPointsTransaction(r.id)(claims.userId))(_ => Ok())
         }
 
-    case req @ POST -> Root / "transaction" / "confirm" asAuthed claims =>
+    case req @ POST -> Root / "confirm" asAuthed claims =>
       req.request.as[TransactionRequest]
         .flatMap { r =>
           wrap(service.confirmPointsTransaction(r.id)(claims.userId))(_ => Ok())
@@ -76,9 +80,12 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
   }
 
   override val routes: HttpRoutes[F] =
-    Router(root -> userRoutes, root -> testRoutes)
+    Router(
+      (root + "/points") -> pointsRoutes,
+      (root + "/points/transaction") -> transactionRoutes,
+      root -> testRoutes
+    )
 
-  //todo log errors?
   private def wrap[A](result: F[ServiceResult[A]])(f: A => F[Response[F]]): F[Response[F]] =
     result.flatMap {
       case Right(res) => f(res)
@@ -86,7 +93,9 @@ private[api] class PointsApi[F[_]: Sync](val root: String,
         err match {
           case InvalidRequest => BadRequest()
           case EntityNotFound => NotFound()
-          case UnknownServiceError(_) => InternalServerError()
+          case UnknownServiceError(e) =>
+            Sync[F].delay(log.error("API failure", e)) >>
+            InternalServerError()
         }
     }
 }

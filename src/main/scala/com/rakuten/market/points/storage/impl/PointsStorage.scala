@@ -51,24 +51,6 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       }.sortBy(_.time)(Ord.desc)
     }
 
-  override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
-    ctx.transaction {
-      for {
-        res <- ctx.run {
-          pendingTransaction.insert(lift(transaction))
-        }.void
-        _ <- transaction match {
-          case PointsTransaction.Pending(id, userId, _, amount, Some(expires), _, _) =>
-            ctx.run {
-              query[ExpiringPoints].insert(lift(ExpiringPoints(id, userId, amount, expires)))
-            }
-          case _ =>
-            //todo subtract from expiring points if negative
-            Task.unit
-        }
-      } yield res
-    }
-
   override def saveTransaction(transaction: PointsTransaction.Confirmed): Task[Unit] = {
     import cats.instances.option._
     ctx.transaction {
@@ -90,6 +72,13 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       } yield res
     }
   }
+
+  override def saveTransaction(transaction: PointsTransaction.Pending): Task[Unit] =
+    ctx.transaction {
+      ctx.run {
+        pendingTransaction.insert(lift(transaction))
+      }.void
+    }
 
   override def confirmTransaction(userId: UserId, id: PointsTransaction.Id): Task[Boolean] = {
     import cats.instances.list._
@@ -171,6 +160,7 @@ private[storage] class PointsStorage(protected implicit val ctx: PostgresContext
       }.map(_.headOption)
     ).semiflatMap { exp =>
       val newAmount = amount - exp.amount
+      println(newAmount, exp.amount <= amount, exp.amount, amount)
       if (exp.amount <= amount) {
         // Continue subtracting
         ctx.run {
