@@ -50,11 +50,12 @@ val Version = new {
   val scalaLogging = "3.9.2"
   val logback = "1.2.3"
   val flyway = "6.0.1"
+  val gatling = "3.2.1"
 }
 
 libraryDependencies ++= Seq(
   "io.monix" %% "monix" % Version.monix,
-  
+
   "org.http4s" %% "http4s-dsl" % Version.http4s,
   "org.http4s" %% "http4s-blaze-server" % Version.http4s,
   "org.http4s" %% "http4s-circe" % Version.http4s,
@@ -64,7 +65,7 @@ libraryDependencies ++= Seq(
   "io.github.jmcardon" %% "tsec-jwt-mac" % Version.tsec,
 
   "io.circe" %% "circe-generic" % Version.circe,
-  
+
   "org.postgresql" % "postgresql" % Version.postgresDriver,
   "io.getquill" %% "quill-jdbc-monix" % Version.quill,
 
@@ -73,9 +74,15 @@ libraryDependencies ++= Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % Version.scalaLogging,
   "ch.qos.logback" % "logback-classic" % Version.logback,
 
-  "org.flywaydb" % "flyway-core" % Version.flyway
+  "org.flywaydb" % "flyway-core" % Version.flyway,
+
+  "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.2.1" % "test,it",
+  "io.gatling"            % "gatling-test-framework"    % "3.2.1" % "test,it",
+
+  "io.jvm.uuid" %% "scala-uuid" % "0.3.1",
 )
 
 // Compiler plugins
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
+enablePlugins(GatlingPlugin)
