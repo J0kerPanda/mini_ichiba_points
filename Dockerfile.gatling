@@ -1,0 +1,7 @@
+FROM mozilla/sbt
+
+ADD src/test/scala /src/test/scala
+ADD project /project
+ADD build.sbt /build.sbt
+
+CMD ["sbt", "gatling:test"]

@@ -51,6 +51,7 @@ val Version = new {
   val logback = "1.2.3"
   val flyway = "6.0.1"
   val gatling = "3.2.1"
+  val scalaUuid = "0.3.1"
 }
 
 libraryDependencies ++= Seq(
@@ -76,10 +77,10 @@ libraryDependencies ++= Seq(
 
   "org.flywaydb" % "flyway-core" % Version.flyway,
 
-  "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.2.1" % "test,it",
-  "io.gatling"            % "gatling-test-framework"    % "3.2.1" % "test,it",
+  "io.gatling.highcharts" % "gatling-charts-highcharts" % Version.gatling % "test,it",
+  "io.gatling"            % "gatling-test-framework"    % Version.gatling % "test,it",
 
-  "io.jvm.uuid" %% "scala-uuid" % "0.3.1",
+  "io.jvm.uuid" %% "scala-uuid" % Version.scalaUuid,
 )
 
 // Compiler plugins

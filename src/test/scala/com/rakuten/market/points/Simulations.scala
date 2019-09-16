@@ -1,17 +1,13 @@
 package com.rakuten.market.points
 
+
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import scala.concurrent.duration._
 
-// class BasicItSimulation extends Simulation {
-//   // setUp(Scenarios.testScenario.inject(atOnceUsers(1)).protocols(Scenarios.httpProtocol))
-// //   setUp(Scenarios.singleSuccessfulExpitingBuy(50, 20, 5.seconds).inject(atOnceUsers(1)).protocols(Scenarios.httpProtocol))
-//   setUp(Scenarios.frodoLaBaboulinka(100).inject(atOnceUsers(1)).protocols(Scenarios.httpProtocol))
-// }
 
 class BasicSimulation extends Simulation {
-  val userNumber = 10000
+  val userNumber = 10
   val startTime = 10.seconds
 
   setUp(
@@ -22,8 +18,8 @@ class BasicSimulation extends Simulation {
 }
 
 class SimulationWithWriters extends Simulation {
-  val userNumberReader = 9000
-  val userNumberWriter = 1000
+  val userNumberReader = 9
+  val userNumberWriter = 1
   val startTime = 10.seconds
   val waitTime = 5.seconds
 
@@ -38,9 +34,9 @@ class SimulationWithWriters extends Simulation {
 }
 
 class SimulationWithWritersAndCancels extends Simulation {
-  val userNumberReader = 9000
-  val userNumberWriterConfirm = 500
-  val userNumberWriterCancel = 500
+  val userNumberReader = 9
+  val userNumberWriterConfirm = 5
+  val userNumberWriterCancel = 5
   val startTime = 10.seconds
   val waitTime = 5.seconds
 
@@ -58,9 +54,9 @@ class SimulationWithWritersAndCancels extends Simulation {
 }
 
 class SimulationWithExpiringWritersAndCancels extends Simulation {
-  val userNumberReader = 9000
-  val userNumberWriterConfirm = 500
-  val userNumberWriterCancel = 500
+  val userNumberReader = 9
+  val userNumberWriterConfirm = 5
+  val userNumberWriterCancel = 5
   val startTime = 10.seconds
   val waitTime = 5.seconds
 
@@ -78,11 +74,11 @@ class SimulationWithExpiringWritersAndCancels extends Simulation {
 }
 
 class SimulationWithExpiringWritersAndCancelsWithFrodo extends Simulation {
-  val userNumberReader = 9000
-  val userNumberWriterConfirm = 500
-  val userNumberWriterCancel = 500
-  val userNumberFrodo = 20
-  val frodoEagerness = 100
+  val userNumberReader = 9
+  val userNumberWriterConfirm = 5
+  val userNumberWriterCancel = 5
+  val userNumberFrodo = 2
+  val frodoEagerness = 1
   val startTime = 10.seconds
   val waitTime = 5.seconds
 

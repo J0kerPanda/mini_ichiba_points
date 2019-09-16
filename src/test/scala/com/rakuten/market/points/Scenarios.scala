@@ -1,13 +1,13 @@
 package com.rakuten.market.points
 
 
-import com.rakuten.market.points.settings.ApplicationSettings
-
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 
 import java.time.Clock
+import javax.crypto.spec.SecretKeySpec
+import tsec.mac.jca.{HMACSHA256, MacSigningKey}
 
 import io.circe.{Json, Encoder}
 import io.circe.syntax._
@@ -15,12 +15,13 @@ import io.circe.parser
 import io.jvm.uuid._
 
 object Scenarios {
+  private val ip = scala.util.Properties.envOrElse("MARKET_IP", "localhost")
   val httpProtocol = http
     .warmUp("http://www.google.com")
-    .baseUrl("http://localhost:80")
+    .baseUrl("http://172.18.0.3:80")
 
 
-  def fullReportReceiver = tokenizedScenario("Test")
+  def fullReportReceiver = tokenizedScenario("Full report receiver")
     .exec(http("Request empty points number")
       .get("/points/info")
       .header("Authorization", "Bearer ${token}")
@@ -33,7 +34,7 @@ object Scenarios {
       .header("Authorization", "Bearer ${token}")
     )
 
-  def goldReceiver(amount: Long, amountExpires: Long, howLong: Duration) = tokenizedScenario("Give everyone gold")
+  def goldReceiver(amount: Long, amountExpires: Long, howLong: Duration) = tokenizedScenario("Gold receiver")
     .exec(http("Raise points")
       .post("/points")
       .header("Authorization", "Bearer ${token}")
@@ -80,7 +81,7 @@ object Scenarios {
       .header("Authorization", "Bearer ${token}")
     )
 
-  def singleChangeOfMind(initialAmout: Long, transactionCost: Long, howLong: Duration) = tokenizedScenario("Single successful buy")
+  def singleChangeOfMind(initialAmout: Long, transactionCost: Long, howLong: Duration) = tokenizedScenario("Single change of mind")
     .exec(http("Request empty points number")
       .get("/points/info")
       .header("Authorization", "Bearer ${token}")
@@ -109,7 +110,7 @@ object Scenarios {
       .header("Authorization", "Bearer ${token}")
     )
 
-  def singleSuccessfulExpitingBuy(initialAmout: Long, transactionCost: Long, howLong: Duration) = tokenizedScenario("Single successful buy")
+  def singleSuccessfulExpitingBuy(initialAmout: Long, transactionCost: Long, howLong: Duration) = tokenizedScenario("Single successful expiring buy")
     .exec(http("Request empty points number")
       .get("/points/info")
       .header("Authorization", "Bearer ${token}")
@@ -135,7 +136,7 @@ object Scenarios {
       .header("Authorization", "Bearer ${token}")
     )
 
-  def frodoLaBaboulinka(eagerness: Int) = tokenizedScenario("Single successful buy")
+  def frodoLaBaboulinka(eagerness: Int) = tokenizedScenario("Frodo la Baboulinka")
     .repeat(eagerness, "i") {
       exec(http("Request frodo points number (La Baboulinka)")
         .get("/points/info")
@@ -168,18 +169,8 @@ object Scenarios {
   }
 
   private implicit val clock: Clock = Clock.systemUTC
-  private val settings = appSettings
-  private val key = settings.api.auth.signingKey
-
-  private def appSettings: ApplicationSettings = {
-    import com.rakuten.market.points.settings.AuthSettings.signingKeyReader
-    import pureconfig.{CamelCase, ConfigFieldMapping}
-    import pureconfig.generic.auto._
-    import pureconfig.generic.ProductHint
-
-    implicit def hint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
-    pureconfig.loadConfigOrThrow[ApplicationSettings]
-  }
+  private val keyString = scala.util.Properties.envOrElse("API_KEY", "test-key")
+  private val key = MacSigningKey[HMACSHA256](new SecretKeySpec(keyString.getBytes, "HS256"))
 
   private def setToken(session: Session): Session = {
     import tsec.jwt.JWTClaims
@@ -188,7 +179,7 @@ object Scenarios {
 
     val jti =  Json.fromLong(session.userId)
     val userId = Json.fromString(UUID(0, session.userId).toString)
-    val exp = clock.instant.plusSeconds(settings.api.auth.expirationInterval.toSeconds)
+    val exp = clock.instant.plusSeconds(10.minutes.toSeconds)
     val claim = JWTClaims(customFields = Seq("jti" -> jti,
                                              "userId" -> userId),
                           expiration = Some(exp))
