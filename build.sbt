@@ -2,7 +2,7 @@ import com.typesafe.sbt.packager.docker._
 
 name := "mini_ichiba_points"
 
-version := "0.5"
+version := "0.6"
 scalaVersion := "2.12.9"
 
 // Compiler options
@@ -20,23 +20,11 @@ packageName in Docker := "mini-ichiba-points"
 
 dockerCommands in Docker ++= Seq(
   Cmd("USER", "root"),
-  Cmd("ENV", "DB_PORT", "5432"),
-  Cmd("ENV", "DB_NAME", "database"),
-  Cmd("ENV", "DB_HOST", "localhost"),
-  Cmd("ENV", "DB_USER", "root"),
-  Cmd("ENV", "DB_PASSWORD", "root"),
-  Cmd("ENV", "API_KEY", "test-keys"),
   ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
 )
 
 dockerExposedPorts in Docker ++= Seq(8080)
 dockerUpdateLatest in Docker := true
-bashScriptExtraDefines += """addJava "-Ddb.dataSource.portNumber=$DB_PORT""""
-bashScriptExtraDefines += """addJava "-Ddb.dataSource.databaseName=$DB_NAME""""
-bashScriptExtraDefines += """addJava "-Ddb.dataSource.serverName=$DB_HOST""""
-bashScriptExtraDefines += """addJava "-Ddb.dataSource.user=$DB_USER""""
-bashScriptExtraDefines += """addJava "-Ddb.dataSource.password=$DB_PASSWORD""""
-bashScriptExtraDefines += """addJava "-Dapi.auth.signingKey=$API_KEY""""
 
 // Dependencies
 val Version = new {

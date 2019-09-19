@@ -1,4 +1,5 @@
 package com.rakuten.market.points.settings
 
 case class ApiSettings(auth: AuthSettings,
-                       server: ServerSettings)
+                       server: ServerSettings,
+                       cors: CorsSettings)

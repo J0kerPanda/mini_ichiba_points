@@ -32,7 +32,7 @@ object Application extends TaskApp {
       pointsStorage = PointsStorage.postgres
       service = PointsService.default(settings.points.transaction, pointsStorage)
       _ <- startScheduledTasks(settings, service)
-      api = Api.points("", settings.api.auth, service)
+      api = Api.points("", settings.api.cors, settings.api.auth, service)
       exitCode <- runServer(api, settings.api.server)
     } yield exitCode
 
@@ -57,7 +57,7 @@ object Application extends TaskApp {
     import com.rakuten.market.points.settings.AuthSettings.signingKeyReader
     import pureconfig.generic.auto._
 
-    implicit def hint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
+    implicit def hint[T]: ProductHint[T] = ProductHint(ConfigFieldMapping(CamelCase, CamelCase))
     Task.delay(pureconfig.loadConfigOrThrow[ApplicationSettings])
   }
 
